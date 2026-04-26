@@ -75,7 +75,7 @@ The dollar-volume screen recovers CAGR by rotating out distressed names before c
 ## Quick start
 
 ```bash
-cd /path/to/trading/algo
+cd $HOME/projects/trading/algo
 source venv/bin/activate
 
 # ── Single variant (full metrics + trade detail + concentration report) ───────

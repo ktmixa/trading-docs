@@ -126,3 +126,4 @@ logic regression — check engine/daily.py, signals/, or precompute.
 - After intentional refactors (e.g. data source change, fill logic change)
 - When advancing the canonical end date to a new trading day
 - Never update just because the market moved — that's not a regression
+
