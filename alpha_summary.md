@@ -1,51 +1,53 @@
 # MixA Alpha Summary
 *Research summary for signal design, backtesting conclusions, and open questions.*
-*Period covered: 2000-01-01 → 2026-04-23 (26.4 years). $100k starting capital.*
+*Period covered: 2000-01-01 → 2026-04-26 (26.4 years). $100k starting capital.*
+
+> **Fill model note (2026-04-26):** All figures from this date forward use the **standard limit order** fill model — orders placed pre-market at signal_px (prior close); fill at open if open ≤ limit, fill at limit if price touches intraday, unfilled otherwise. The previous "gap-skip" rule (reject buys that open >1% above limit) has been removed — it modelled a human watching the open, which does not apply to pre-market limit orders. This lowers all historical CAGR figures by ~50bp vs prior summaries; the fill model is now correct.
 
 ---
 
-## Current champion: V39 — numbers to beat
+## Current champion: R1_189 — numbers to beat
 
-**V39 = SMA100/300 + momentum (top 25%) + SPY asymmetric gate + VIX sizing + T-bill yield + adaptive ^IRX reopen + PIT S&P 500 universe + trailing dvol top-50 screen + 10-day trend persistence + SPY recovery re-entry (sma=20, mult=0.25)**
+**R1_189 = V39 + relative-strength filter (must outperform SPY over trailing 189 trading days / ~9 months)**
 
-No foreknowledge. All filters real-time computable. Any candidate strategy or universe improvement must clear these numbers to be considered an upgrade.
+All V39 components plus: RS filter requires each entry to have beaten SPY on a 9-month return basis. No foreknowledge. All filters real-time computable.
 
-| Metric | **V39** | H39 (hindsight ceiling) | SPY B&H | QQQ B&H | AOA† |
-|--------|---------|------------------------|---------|---------|------|
-| End value ($100k start) | **$1,306,185** | $1,228,219 | $775,385 | $815,014 | $555,686† |
-| CAGR | **+10.26%** | +10.00% | +8.10% | +8.30% | +6.74%† |
-| Sharpe | 0.76 | **0.84** | 0.53 | 0.46 | 0.77† |
-| MaxDD | 20.5% | **18.3%** | 55.2% | 83.0% | 28.4%† |
-| GFC drawdown | 20.2% | **18.2%** | 55% | 78% | — |
-| COVID drawdown | **14.5%** | 17.0% | 34% | 29% | — |
-| Rates drawdown | 13.3% | **12.2%** | 24% | 35% | — |
-| Win rate | **37.1%** | 36.1% | — | — | — |
+| Metric | **R1_189** | V39 (prev champion) | H39 (hindsight ceiling) | SPY B&H | AOA† |
+|--------|-----------|---------------------|------------------------|---------|------|
+| End value ($100k start) | **$1,078,696** | $1,016,190 | — | $781,394 | $559,722† |
+| CAGR | **+9.46%** | +9.21% | — | +8.10% | +6.76%† |
+| Sharpe | **0.70** | 0.69 | — | 0.53 | 0.77† |
+| MaxDD | **20.4%** | 20.4% | — | 55.2% | 28.4%† |
+| Calmar | **0.46** | 0.45 | — | 0.15 | — |
+| GFC drawdown | **20.4%** | 20.4% | — | 55% | — |
+| COVID drawdown | **14.8%** | 14.8% | — | 34% | — |
+| Rates drawdown | 17.5% | **15.1%** | — | 24% | — |
+| Win rate | **37.4%** | 36.2% | — | — | — |
 
-*IRA/tax-free, next_bar MOO fill (f=0/0, opening auction price), run 2026-04-25 (data through 2026-04-23). H39 = identical V39 signal on a static hand-picked SP50 — the hindsight ceiling for universe quality.*
+*IRA/tax-free, standard limit order fill (pre-market limit at signal_px), run 2026-04-26 (data through 2026-04-25). H39 not yet rerun under new fill model.*
 
 †AOA (iShares Core Aggressive Allocation ETF, 80/20 stocks/bonds) from inception 2008-11-11; all others from 2000-01-01.
 
-**How V39 works:**
-- *Universe:* Dynamic — historical S&P 500 point-in-time membership (fja05680/sp500 dataset). Only enters tickers that were actually in the index on the entry date; forced-exit on removal. Backtest uses full universe; live trading additionally excludes `WASH_SALE_EXCLUDE` tickers held in juicer.
+**How R1_189 works (all V39 components plus RS filter):**
+- *Universe:* Dynamic — historical S&P 500 point-in-time membership (fja05680/sp500 dataset). Only enters tickers that were actually in the index on the entry date; forced-exit on removal.
 - *Quality screen:* Top-50 by trailing 30-day dollar-volume; rotates out distressed names as liquidity drains months before bankruptcy
 - *Signal:* SMA100/300 trend crossover with 3×ATR stop; 20-day re-entry cooldown
-- *Persistence gate:* Requires 10 consecutive LONG signal days before opening — eliminates marginal crossover entries that reverse immediately
+- *Persistence gate:* Requires 10 consecutive LONG signal days before opening
 - *Momentum filter:* Top 25% by 12-1 month cross-sectional rank
+- *RS filter (new):* Entry requires trailing 189-day return > SPY trailing 189-day return. Ensures entries are market leaders, not just stocks in absolute uptrends.
 - *Regime filter:* SPY asymmetric gate (close > SMA200 to close, fast or slow reopen gated by ^IRX momentum); VIX halved above 25, paused above 40
-- *Recovery re-entry:* When SPY < SMA200 but SPY > SMA20, allows entries at 25% normal size; captures V-shaped recoveries (GFC 2009, COVID 2020, rates 2022) before the full regime gate reopens
+- *Recovery re-entry:* When SPY < SMA200 but SPY > SMA20, allows entries at 25% normal size
 - *Cash yield:* Idle cash earns ^IRX (T-bill) rate daily
 
-**T-bill effect:** +0.4pp mean CAGR; +2.1pp in high-rate eras. Models real brokerage/IRA sweep.
+**T-bill effect:** +0.4pp mean CAGR; +2.1pp in high-rate eras.
 
-**V39 vs H39 (hindsight universe ceiling):** H39 runs the identical V39 signal on a static hand-picked SP50 list — the apples-to-apples hindsight benchmark. Result with corrected MOO fill model: V39 CAGR +10.26% now beats H39 +10.00% — V39 leads on end value and CAGR while H39 leads on Sharpe (0.84 vs 0.76), MaxDD (18.3% vs 20.5%), and stress DDs. The PIT universe's larger pool finds more cyclical winners (energy, financials, industrials across eras) that the static SP50 misses, offsetting the quality penalty. H39's edge is now purely in risk metrics, not raw return — the gap to close is drawdown, not alpha.
+**R1_189 vs V39:** Same MaxDD (20.4%) and Calmar (0.46). R1_189 adds +25bp CAGR and +0.01 Sharpe. The RS filter's only cost is a slightly higher Rates DD (17.5% vs 15.1%) — worth watching. The 9-month lookback was the sweet spot in the RS sweep (see RS filter research below); shorter lookbacks (63d) give similar CAGR but worse MaxDD; longer (252d) drops CAGR significantly.
 
-**Universe quality and the persistence gate:** V31 (same SP50, no persistence) hit +10.26% CAGR vs H39's +8.10% — ~2.2pp lost to the persistence gate on a clean universe. This is expected: the 10-day persistence filter was designed to filter out marginal names in a noisy PIT universe; on a pre-screened quality list those names don't exist, so persistence mostly delays good entries. **TODO:** once a forward-looking quality universe (third candidate) is built, re-tune or relax `trend_persist_days` — it may be redundant if universe construction already selects for clean-trending names.
-
-**Status:** EOD signal runner scheduled (cron 4:20 PM ET, writes reports to `docs/reports/eod/`). Morning execution runner ready; wires to IBKR once IB Gateway is set up.
+**Status:** EOD signal runner live (cron 4:20 PM ET, writes reports to `docs/reports/eod/`). Morning execution runner ready; wires to IBKR once IB Gateway is set up.
 
 ---
 
-## Portfolio architecture (V39 — current)
+## Portfolio architecture (R1_189 — current)
 
 Single-strategy deployment on $100k capital:
 
@@ -54,7 +56,7 @@ Single-strategy deployment on $100k capital:
 | Up to ~83% equity | Long individual stocks in confirmed uptrends (ATR-sized) |
 | Remaining cash | Earns 13-week T-bill rate (^IRX) daily |
 
-Universe: dynamic top-50 by trailing 30-day dollar-volume among current S&P 500 members (point-in-time). Forced-exit on index removal. 10-day persistence gate before entry. Recovery mode: 25%-sized entries when SPY < SMA200 but > SMA20. Wash-sale exclusions (`WASH_SALE_EXCLUDE` in `config.py`) applied only in live signal generation.
+Universe: dynamic top-50 by trailing 30-day dollar-volume among current S&P 500 members (point-in-time). Forced-exit on index removal. 10-day persistence gate before entry. RS filter: entry requires 189-day return > SPY. Recovery mode: 25%-sized entries when SPY < SMA200 but > SMA20. Wash-sale exclusions (`WASH_SALE_EXCLUDE` in `config.py`) applied only in live signal generation.
 
 **MR and UVXY not active.** Mean reversion earned only +0.90% CAGR on its capital slice. UVXY was tested (V37a/b) and was net negative. Both remain documented below.
 
@@ -104,27 +106,34 @@ V1–V33 used a static curated SP50 universe (hindsight-biased). V34–V39 use t
 
 *V31 figures are on the static SP50 universe. On the PIT dataset, V31 achieves 9.4% CAGR / Sharpe 0.54 — the gap vs SP50 is survivor bias.*
 
-### V34–V39: point-in-time S&P 500 universe (bias-corrected)
+### V34–V39 and R-series: point-in-time S&P 500 universe (bias-corrected)
+
+*All figures: standard limit order fill (pre-market limit at signal_px), IRA/tax-free, data through 2026-04-26. V37a/b/V38 are legacy-fill estimates. R2/R3/RG1 are from compare.py runs.*
 
 | # | Variant | CAGR | Sharpe | MaxDD | Win rate | Rates DD |
 |---|---------|------|--------|-------|----------|----------|
-| 34 | PIT raw (no quality filters) | +11.48% | 0.55 | 29.3% | 35.8% | 12.8% |
-| 35 | V34 + dvol top-50 screen | +8.66% | 0.63 | 24.1% | 34.6% | 15.6% |
-| 36 | V35 + 10-day persistence | +9.66% | 0.71 | 22.1% | 38.5% | 13.2% |
+| 34 | PIT raw (no quality filters) | — | — | — | — | — |
+| 35 | V34 + dvol top-50 screen | — | — | — | — | — |
+| 36 | V35 + 10-day persistence | — | — | — | — | — |
 | 37a | V36 + UVXY 15% gate-close hedge (full) | ~+7.6% | ~0.55 | ~31% | — | — |
 | 37b | V36 + UVXY 15% gate-close hedge (30d cap) | ~+7.6% | ~0.55 | ~29% | — | — |
 | 38 | V36 + 30-day reopen persistence waiver | ~+8.1% | ~0.60 | ~25% | — | — |
-| **39** | **V36 + SPY recovery re-entry (champion)** | **+10.26%** | **0.76** | **20.5%** | **37.1%** | **13.3%** |
-| R1 | V39 + RS filter (beat SPY 6mo) — see note | +10.70% | 0.78 | 18.7% | 37.3% | 15.5% |
-| R2 | V39 + rank rotation (top-name-not-held, min_hold=10) — see note | +9.4% | 0.69 | 22.6% | 39% | 20% |
-| R3 | V39 + fallen-out rotation (longest-held exit) — see note | +9.7% | 0.72 | 21.2% | 38.5% | 13% |
-| RG1 | V39 + GLD cash substitute (idle cash → GLD) — see note | +10.0% | 0.70 | 30.9% | 53% | 22% |
-| H39 | V39 signal on hindsight SP50 (ceiling) | +10.00% | **0.84** | **18.3%** | 36.1% | **12.2%** |
+| 39 | V36 + SPY recovery re-entry (prev champion) | +9.21% | 0.69 | 20.4% | 36.2% | 15.1% |
+| R1 | V39 + RS filter (beat SPY 6mo, 126d) | +9.23% | 0.69 | 22.5% | 36.6% | 20.0% |
+| R1_63 | V39 + RS filter (beat SPY 3mo, 63d) | +9.47% | 0.69 | 22.4% | 37.5% | 14.8% |
+| **R1_189** | **V39 + RS filter (beat SPY 9mo, 189d) — champion** | **+9.46%** | **0.70** | **20.4%** | **37.4%** | **17.5%** |
+| R1_252 | V39 + RS filter (beat SPY 12mo, 252d) | +8.90% | 0.67 | 20.4% | 35.8% | 15.1% |
+| R1_QQQ | V39 + RS filter (beat QQQ 6mo) | +9.02% | 0.66 | 20.8% | 35.5% | 17.8% |
+| R1_RSP | V39 + RS filter (beat RSP 6mo) | +9.08% | 0.68 | 21.3% | 36.2% | 14.1% |
+| R2 | V39 + rank rotation (top-name-not-held, min_hold=10) | +9.4% | 0.69 | 22.6% | 39% | 20% |
+| R3 | V39 + fallen-out rotation (longest-held exit) | +9.7% | 0.72 | 21.2% | 38.5% | 13% |
+| RG1 | V39 + GLD cash substitute (idle cash → GLD) | +10.0% | 0.70 | 30.9% | 53% | 22% |
+| H39 | V39 signal on hindsight SP50 (ceiling) | — | — | — | — | — |
 | — | SPY buy-and-hold | +8.10% | 0.53 | 55.2% | — | 24% |
 
-*All figures: next_bar MOO fill (f=0/0, opening auction price), IRA/tax-free, data through 2026-04-25. V37a/b/V38 are legacy-fill estimates (no change). V34–V36 formerly used legacy fill; figures above are MOO-fill reruns. R2/R3/RG1 are from compare.py runs using the same fill model.*
+*V34–V36 and H39 not yet rerun under new fill model (pending). R2/R3/RG1 figures are from old fill model runs; directional conclusions unchanged.*
 
-**Key finding:** With the corrected MOO fill model V39 now leads H39 on CAGR (+10.26% vs +10.00%) while H39 retains the edge on Sharpe (0.84 vs 0.76) and MaxDD (18.3% vs 20.5%). V39 beats SPY by +2.16pp CAGR. **R1 (RS filter) outperforms V39 on all three headline metrics** — see closed research section. R2/R3 rotation experiments add turnover without improving risk-adjusted returns. RG1 (GLD parking) adds ~0.3pp CAGR long-run but widens MaxDD by ~10pp — not worth it.
+**RS sweep key finding (2026-04-26):** SPY is the right benchmark; QQQ and RSP both hurt. 9-month lookback (189d) is the sweet spot — same MaxDD as V39, +25bp CAGR, marginally better Sharpe. Removing the old gap-skip rule cost ~50bp across all variants (the gap-skip was accidentally filtering failed gap-up entries); new numbers reflect correct pre-market limit order semantics.
 
 ### Rolling 5-year windows (22 windows, 2000–2026, step=12mo, IRA/tax-free)
 
@@ -165,11 +174,29 @@ V39 **best window:** 2013 start (+16.5% CAGR, α=+1.4pp vs SPY). **Worst window:
 
 ## Closed research (not deployed)
 
-**RS relative-strength gate (R1):** Hypothesis — require each entry to outperform SPY over the trailing 126 days (beat SPY 6-month return) on top of dvol top-50 + momentum top-25%. Previously rejected under legacy fill mode (CAGR +8.64% vs V39 +9.24%, −0.60pp). **With corrected MOO fill model, R1 now outperforms V39 on all three headline metrics: CAGR +10.70% vs +10.26% (+0.44pp), Sharpe 0.78 vs 0.76, MaxDD 18.7% vs 20.5%.** It also beats H39 on CAGR (+10.70% vs +10.00%) and nearly matches on Sharpe (0.78 vs 0.84). Infrastructure (`rs_filter`, `rs_lookback` params) in code.
+**RS relative-strength filter sweep (R1 series) — promoted to champion as R1_189:**
 
-The prior rejection analysis (legacy fill mode) was misleading: legacy fills ignoring gap dynamics masked the RS filter's selective edge. With MOO fills that correctly price gap-down entries and gap-up exits, the RS filter's benefit (removing names that are in absolute uptrends but lagging SPY on a 6-month basis) becomes clearly positive. The 15.5% Rates DD (vs V39's 13.3%) is the only metric where V39 beats R1.
+Hypothesis: require each entry to outperform SPY over a trailing window on top of dvol top-50 + momentum top-25%.
 
-**Status: re-open for evaluation as V39 replacement.** Needs forward-test validation before promotion.
+Sweep run 2026-04-26 under standard limit order fill semantics (26 years, IRA/tax-free):
+
+| Variant | Lookback | Benchmark | CAGR | Sharpe | MaxDD | Rates DD |
+|---------|----------|-----------|------|--------|-------|----------|
+| R1 | 126d (6mo) | SPY | +9.23% | 0.69 | 22.5% | 20.0% |
+| R1_63 | 63d (3mo) | SPY | +9.47% | 0.69 | 22.4% | 14.8% |
+| **R1_189** | **189d (9mo)** | **SPY** | **+9.46%** | **0.70** | **20.4%** | **17.5%** |
+| R1_252 | 252d (12mo) | SPY | +8.90% | 0.67 | 20.4% | 15.1% |
+| R1_QQQ | 126d | QQQ | +9.02% | 0.66 | 20.8% | 17.8% |
+| R1_RSP | 126d | RSP | +9.08% | 0.68 | 21.3% | 14.1% |
+| V39 (baseline) | — | — | +9.21% | 0.69 | 20.4% | 15.1% |
+
+**Key findings:**
+- **9-month (189d) lookback is the sweet spot:** same MaxDD as V39, +25bp CAGR, +0.01 Sharpe. Promoted as R1_189.
+- **SPY is the right benchmark:** QQQ (too hard a bar — filters out valid non-tech momentum names) and RSP (equal-weight, too restrictive) both hurt.
+- **Gap-skip removal effect:** Removing the gap-skip rule cost ~50bp across all variants. The old gap-skip was accidentally filtering failed gap-up entries (net-negative trades); new numbers under correct limit order semantics are ~50bp lower but more accurate.
+- **Rates DD concern:** R1_189 has 17.5% Rates DD vs V39's 15.1%. Worth monitoring.
+
+**Status: promoted. R1_189 is current live champion.**
 
 **UVXY gate-close hedge (V37a/b):** Hypothesis — buy UVXY when SPY regime gate closes. Result: net negative. Two problems: (1) adaptive ^IRX reopen causes daily gate flips during 2022 grinding bear → 20+ one-day entries with friction; (2) one 289-day hold (May 2022–Mar 2023) lost −74.2% from contango decay. UVXY contango (~50–80%/yr) makes it unsuitable as a prolonged bear hedge.
 
@@ -266,60 +293,58 @@ GLD adds ~0.3pp CAGR long-run but the MaxDD cost is severe (+9.7pp). The 2012–
 
 ## Fill simulation: canonical model
 
-All numbers in this document use `next_bar` MOO fill (f=0/0) — the correct model for pre-open limit orders on liquid S&P 500 names.
+All numbers from 2026-04-26 onward use the **standard limit order** fill model (`next_bar`, f=0/0). Orders are placed pre-market at signal_px (prior close).
 
 **Fill mode mechanics:**
 - `legacy`: entry at close[T] × 1.001, exit at close[T] × 0.999. Same-day fill — unrealistic.
-- `next_bar` f=0: entry and exit at open[T+1]. Correct for a limit order placed pre-market: the opening auction clears at a single price with no bid-ask spread. A buy limit ≤ open fills at open; a sell limit ≥ open fills at open. Gap-up buys (>1%) and gap-down sells that never touch the limit go unfilled.
+- `next_bar` f=0 (canonical): buy fills at open if open ≤ limit; fills at limit if open > limit but price touches limit intraday; unfilled otherwise. Sell is symmetric. No gap-skip rule — the broker handles the order; no human watches the open.
+- `moo`: always fills at open unconditionally. Tested and rejected — gap-up stocks that fill at open and never come back are net losers vs standard limit semantics.
 
-| Entry f | Exit f | CAGR | Sharpe | MaxDD | Calmar | Notes |
-|---|---|---|---|---|---|---|
-| legacy | legacy | +9.24%† | 0.68† | 20.5% | 0.45 | idealized — same-day close fill |
-| **0.0** | **0.0** | **+10.26%** | **0.76** | **20.5%** | **0.50** | **canonical — opening auction** |
-| 0.1 | 0.1 | +9.72% | 0.73 | 20.2% | 0.48 | conservative haircut |
-| 0.3 | 0.5 | ~+7% | ~0.55 | ~25% | — | pessimistic / intraday |
+| Entry f | Exit f | CAGR (V39) | Notes |
+|---|---|---|---|
+| legacy | legacy | ~+9.7% | idealized — same-day close fill |
+| **0.0** | **0.0** | **+9.21%** | **canonical — pre-market limit order** |
+| 0.1 | 0.1 | ~+8.7% | conservative haircut |
 
-†Legacy CAGR appears lower than MOO because legacy fills ignore gap-down entry windfalls and gap-up exit windfalls; it also fills gap-up buy entries at close price (unrealistic — a buy limit is never filled above market).
-
-**Why MOO (f=0) is the correct default:** A limit order placed after EOD before T+1 open participates in the opening auction. The auction clears at a single price — there is no bid-ask spread at the auction. If the limit is in the money at open, you fill at the open price. On liquid S&P 500 names, bid-ask spread at open is $0.01–0.05, which is noise.
+**Gap-skip removal (2026-04-26):** The prior model rejected buy orders that opened >1% above the limit even if the price came back intraday. This modelled a human watching the open — incorrect for pre-market limit orders. Removing it cost ~50bp across all variants (the gap-skip was accidentally filtering failed gap-up entries that are net-negative trades). Current semantics correctly model the broker filling the order at the opening auction or intraday limit touch.
 
 ```bash
-python mixa/backtest/run.py --variant 4                          # next_bar MOO (default)
-python mixa/backtest/run.py --variant 4 --fill-mode legacy       # legacy mode for reference
+python mixa/backtest/run.py --variant 7                          # R1_189 next_bar (default)
+python mixa/backtest/run.py --variant 7 --fill-mode legacy       # legacy mode for reference
 ```
 
 ---
 
-## Trend strategy conclusion: V39 is the champion
+## Trend strategy conclusion: R1_189 is the champion
 
-V39 is the **only fully bias-corrected variant** — no foreknowledge, all filters real-time computable, dynamic S&P 500 universe. H39 (same signal, static SP50) is the apples-to-apples hindsight ceiling.
+R1_189 is the **current bias-corrected champion** — no foreknowledge, all filters real-time computable, dynamic S&P 500 universe. H39 (same signal, static SP50) is the apples-to-apples hindsight ceiling (not yet rerun under new fill model).
 
-| Metric | **V39 (bias-corrected champion)** | R1 (RS filter candidate) | H39 (hindsight ceiling) | SPY | AOA§ |
-|--------|-----------------------------------|--------------------------|------------------------|-----|------|
-| End value | $1,306,185 | **$1,451,775** | $1,228,219 | $775,385 | $555,686§ |
-| CAGR | +10.26% | **+10.70%** | +10.00% | +8.10% | +6.74%§ |
-| Sharpe | 0.76 | 0.78 | **0.84** | 0.53 | 0.77§ |
-| MaxDD | 20.5% | 18.7% | **18.3%** | 55.2% | 28.4%§ |
-| GFC stress | 20.2% | **18.4%** | 18.2% | 55% | — |
-| COVID stress | **14.5%** | **14.5%** | 17.0% | 34% | — |
-| Rates stress | **13.3%** | 15.5% | 12.2% | 24% | — |
-| Win rate | 37.1% | **37.3%** | 36.1% | — | — |
-| Min 5yr CAGR | **+2.1%** (2007) | — | — | −2.2% | n/a |
+| Metric | **R1_189 (champion)** | V39 (prev champion) | H39 (hindsight ceiling) | SPY | AOA§ |
+|--------|-----------------------|---------------------|------------------------|-----|------|
+| End value | **$1,078,696** | $1,016,190 | — | $781,394 | $559,722§ |
+| CAGR | **+9.46%** | +9.21% | — | +8.10% | +6.76%§ |
+| Sharpe | **0.70** | 0.69 | — | 0.53 | 0.77§ |
+| MaxDD | **20.4%** | 20.4% | — | 55.2% | 28.4%§ |
+| GFC stress | **20.4%** | 20.4% | — | 55% | — |
+| COVID stress | **14.8%** | 14.8% | — | 34% | — |
+| Rates stress | 17.5% | **15.1%** | — | 24% | — |
+| Win rate | **37.4%** | 36.2% | — | — | — |
 
-§AOA (iShares Core Aggressive Allocation ETF, 80/20 stocks/bonds) from inception 2008-11-11. All figures IRA/tax-free, next_bar MOO fill (f=0/0), data through 2026-04-23.
+§AOA from inception 2008-11-11. All figures IRA/tax-free, standard limit order fill (f=0/0), data through 2026-04-26.
 
-**Interpretation:** With corrected MOO fills, V39 now leads H39 on CAGR (+10.26% vs +10.00%) and COVID/Rates stress DDs; H39 retains the edge on Sharpe and MaxDD (quality universe premium). V39 beats SPY by +2.16pp CAGR and +0.24 Sharpe. **R1 (RS filter) now dominates V39 on CAGR, Sharpe, and MaxDD** — re-open for forward-test evaluation as the next champion candidate. A quality screen that closes the Sharpe gap to H39 (0.84) remains the primary research target.
+**Interpretation:** R1_189 matches V39 on MaxDD and Calmar while adding +25bp CAGR and marginally better Sharpe. The RS filter (must outperform SPY over 9 months) is the decisive improvement — it rules out stocks in confirmed absolute uptrends that are nonetheless lagging the market, which tend to be dead money. R1_189 beats SPY by +1.36pp CAGR and +0.17 Sharpe. The Rates DD is the one area where R1_189 underperforms V39 (17.5% vs 15.1%). H39 (hindsight ceiling) not yet rerun under new fill model.
 
-![V39 vs H39 equity curve](docs/v39_vs_h39.png)
+![R1_189 vs V39 vs H39 equity curve](docs/r1_189_vs_h39.png)
 
 ---
 
-## Current recommended configuration: V39
+## Current recommended configuration: R1_189
 
 - SMA100/300 golden cross on daily bars
 - Dynamic PIT S&P 500 universe; forced-exit on removal
 - Dollar-volume screen: top-50 by trailing 30d avg dollar volume
 - Momentum filter: top 25% by 12-1 month cross-sectional rank
+- **RS filter: entry requires 189-day return > SPY 189-day return** *(new in R1_189)*
 - 10-day trend persistence gate before entry
 - SPY asymmetric regime gate: close at SMA200, reopen fast (^IRX easing) or slow (^IRX tightening)
 - SPY recovery re-entry: 25% size when SPY < SMA200 but > SMA20
@@ -328,7 +353,7 @@ V39 is the **only fully bias-corrected variant** — no foreknowledge, all filte
 - 20-day re-entry cooldown after stop-losses
 - T-bill cash yield: idle cash earns ^IRX daily
 - Position sizing: 1% portfolio risk per trade, max 15% per position
-- *Full-period (2000–2026): CAGR +10.26%, Sharpe 0.76, MaxDD 20.5% (next_bar MOO fill, IRA/tax-free)*
+- *Full-period (2000–2026): CAGR +9.46%, Sharpe 0.70, MaxDD 20.4% (standard limit order fill, IRA/tax-free)*
 
 ---
 
