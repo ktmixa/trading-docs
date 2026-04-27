@@ -141,7 +141,7 @@ V1–V33 used a static curated SP50 universe (hindsight-biased). V34–V39 use t
 
 | Variant | Mean | Min | P25 | Median | P75 | Max | > SPY | > QQQ |
 |---------|------|-----|-----|--------|-----|-----|-------|-------|
-| **V39 (champion)** | **+8.8%** | **+2.1%** | **+5.0%** | **+8.7%** | **+12.2%** | **+16.5%** | **11/22** | **5/22** |
+| **V39 (reference)** | **+8.8%** | **+2.1%** | **+5.0%** | **+8.7%** | **+12.2%** | **+16.5%** | **11/22** | **5/22** |
 | V36 (reference) | +7.5% | −0.2% | +5.2% | +7.5% | +10.0% | +14.1% | 7/22 | 5/22 |
 | SPY B&H | +9.1% | −2.2% | +1.9% | +11.7% | +14.9% | +18.2% | — | — |
 | QQQ B&H | +11.9% | −15.7% | +5.9% | +15.5% | +19.3% | +28.1% | — | — |
@@ -378,7 +378,7 @@ UVXY tested as V37a/b — net negative vs V36 due to contango decay on prolonged
 
 ## Concentration analysis (V39)
 
-*Regenerate with `python mixa/backtest/compare.py --variant 4`.*
+*Regenerate with `python mixa/backtest/compare.py --variant 7`.*
 
 V36 concentration is structurally broader than V29/V31 (static SP50) because the PIT universe rotates in and out of distressed names, spreading P&L more evenly. NVDA remains the top contributor but a lower share of total P&L than in V29 (15–20% vs 30%), since the full S&P 500 universe introduces more diversified winners (energy, financials, industrials across different eras).
 

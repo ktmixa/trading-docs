@@ -1,33 +1,31 @@
 # MixA — Active Trading Algo
 
-Trend-following strategy on a $100k capital pool. Single-strategy deployment as of V39.
+Trend-following strategy on a $100k capital pool. Current champion: **R1_189** (V39 + 9-month relative-strength filter).
 
-| Metric | **V39** (champion) | H39 (hindsight ceiling) | SPY B&H | QQQ B&H | AOA† |
-|--------|-----------------------------------|------------------------|---------|---------|------|
-| End value ($100k start) | **$1,306,185** | $1,228,219 | $775,385 | $815,014 | $555,686† |
-| CAGR | **+10.26%** | +10.00% | +8.10% | +8.30% | +6.74%† |
-| Sharpe | 0.76 | **0.84** | 0.53 | 0.46 | 0.77† |
-| Max drawdown | 20.5% | **18.3%** | 55.2% | 83.0% | 28.4%† |
-| Rates stress DD | 13.3% | **12.2%** | — | — | — |
-| Win rate | **37.1%** | 36.1% | — | — | — |
+| Metric | **R1_189** (champion) | V39 (prev champion) | H39 (hindsight ceiling) | SPY B&H | AOA† |
+|--------|----------------------|---------------------|------------------------|---------|------|
+| End value ($100k start) | **$1,078,696** | $1,016,190 | — | $781,394 | $559,722† |
+| CAGR | **+9.46%** | +9.21% | — | +8.10% | +6.76%† |
+| Sharpe | **0.70** | 0.69 | — | 0.53 | 0.77† |
+| Max drawdown | **20.4%** | 20.4% | — | 55.2% | 28.4%† |
+| Rates stress DD | 17.5% | **15.1%** | — | — | — |
+| Win rate | **37.4%** | 36.2% | — | — | — |
 
-H39 = identical V39 signal on a static hand-picked SP50 (hindsight-biased). With corrected MOO fills, V39 now leads H39 on CAGR (+10.26% vs +10.00%) and end value; H39 retains the edge on Sharpe (0.84 vs 0.76) and MaxDD (18.3% vs 20.5%). V39 beats SPY by +2.16pp CAGR. **R1 (RS filter variant) now outperforms V39 on all three headline metrics** — see `docs/alpha_summary.md`.
+H39 = identical V39 signal on a static hand-picked SP50 (hindsight-biased). R1_189 beats V39 by +25bp CAGR and +0.01 Sharpe with identical MaxDD. R1_189 beats SPY by +1.36pp CAGR and +0.17 Sharpe. *All figures: standard limit order fill (pre-market limit at signal_px), IRA/tax-free, data through 2026-04-26.*
 
-†AOA (iShares Core Aggressive Allocation ETF, 80/20 stocks/bonds) from inception 2008-11-11; V39 and SPY/QQQ from 2000-01-01. IRA/tax-free, next_bar MOO fill (f=0/0, opening auction), data through 2026-04-25.
+†AOA (iShares Core Aggressive Allocation ETF, 80/20 stocks/bonds) from inception 2008-11-11; all others from 2000-01-01.
 
-![V39 vs H39 vs SPY — $100k from 2000](docs/v39_vs_h39.png)
-
-![V39 vs SPY — $100k from 2000](docs/v39_vs_spy.png)
-
-![V39 vs AOA — $100k from 2008-11-11](docs/v39_vs_aoa.png)
+![R1_189 vs V39 vs SPY equity curve](docs/r1_189_vs_h39.png)
 
 ### Rolling 5-year windows (22 windows, 2000–2026, step=12mo)
+
+*Rolling window chart reflects V39; R1_189 rolling analysis pending.*
 
 ![V39 rolling 5-year CAGR by start date](docs/rolling_5y_v39.png)
 
 | Variant | Mean | Min | P25 | Median | P75 | Max | > SPY | > QQQ |
 |---------|------|-----|-----|--------|-----|-----|-------|-------|
-| **V39 (champion)** | **+8.8%** | **+2.1%** | **+5.0%** | **+8.7%** | **+12.2%** | **+16.5%** | **11/22** | **5/22** |
+| **V39 (reference)** | **+8.8%** | **+2.1%** | **+5.0%** | **+8.7%** | **+12.2%** | **+16.5%** | **11/22** | **5/22** |
 | V36 (reference) | +7.5% | −0.2% | +5.2% | +7.5% | +10.0% | +14.1% | 7/22 | 5/22 |
 | SPY B&H | +9.1% | −2.2% | +1.9% | +11.7% | +14.9% | +18.2% | — | — |
 | QQQ B&H | +11.9% | −15.7% | +5.9% | +15.5% | +19.3% | +28.1% | — | — |
@@ -38,13 +36,14 @@ Interactive Brokers (paper → live). Completely separate from juicer — differ
 
 ---
 
-## What V39 is
+## What R1_189 is
 
 **SMA100/300 golden cross** on the dynamic S&P 500 universe (point-in-time membership from the fja05680/sp500 dataset), with:
 - **PIT universe gate** — only enters tickers that were actually S&P 500 members on the entry date; force-exits on removal (bankruptcy, downgrade, M&A)
 - **Wash-sale exclusions** — `WASH_SALE_EXCLUDE` in `config.py` (`GOOG`, `GOOGL`, `AMZN`, `META`, `DDOG`) removed from the universe; these are held in juicer and opening/closing within 30 days of a juicer assignment would disallow the loss
 - **Dollar-volume screen** — top-50 by trailing 30-day avg dollar volume; rotates out distressed names as liquidity drains months before bankruptcy
 - **Momentum filter** — only enter top 25% by 12-1 month cross-sectional rank
+- **RS filter** — entry requires trailing 189-day return > SPY trailing 189-day return; ensures entries are market leaders, not just stocks in absolute uptrends (new in R1_189 vs V39)
 - **SPY adaptive asymmetric regime gate** — halt entries when SPY < SMA200; reopen using fast mode (price > SMA100) when rates are easing, slow mode (SMA100 > SMA200) when tightening
 - **^IRX rate signal** — 20d MA < 60d MA = easing (fast reopen); fires in every Fed hiking cycle
 - **VIX adaptive sizing** — half-size when VIX > 25; skip entirely when VIX > 40
@@ -60,15 +59,18 @@ Position sizing: 1% portfolio risk per trade, max 15% per position.
 
 ## Survivor-bias correction: what it cost
 
-| Variant | Universe | CAGR | Sharpe | MaxDD | Win rate | Rates DD |
-|---------|----------|------|--------|-------|----------|----------|
-| V34 | PIT raw | +11.48% | 0.55 | 29.3% | 35.8% | 12.8% |
-| V35 | V34 + dvol top-50 | +8.66% | 0.63 | 24.1% | 34.6% | 15.6% |
-| V36 | V35 + 10-day persistence | +9.66% | 0.71 | 22.1% | 38.5% | 13.2% |
-| **V39** | **V36 + SPY recovery re-entry** | **+10.26%** | **0.76** | **20.5%** | **37.1%** | 13.3% |
-| H39 | V39 signal, hindsight SP50 | +10.00% | **0.84** | **18.3%** | 36.1% | **12.2%** |
+| Variant | Universe | CAGR | Sharpe | MaxDD | Win rate |
+|---------|----------|------|--------|-------|----------|
+| V34 | PIT raw | +11.48% | 0.55 | 29.3% | 35.8% |
+| V35 | V34 + dvol top-50 | +8.66% | 0.63 | 24.1% | 34.6% |
+| V36 | V35 + 10-day persistence | +9.66% | 0.71 | 22.1% | 38.5% |
+| V39 | V36 + SPY recovery re-entry | +9.21% | 0.69 | 20.4% | 36.2% |
+| **R1_189** | **V39 + RS filter (9mo)** | **+9.46%** | **0.70** | **20.4%** | **37.4%** |
+| H39 | V39 signal, hindsight SP50 | — | — | — | — |
 
-The dollar-volume screen recovers CAGR by rotating out distressed names before collapse (ENRN, LEH, WCOM exited top-50 months before zero). The persistence gate lifts win rate and cuts MaxDD. The recovery re-entry adds CAGR and cuts MaxDD by capturing V-shaped recoveries. H39 shows that a quality screen's edge is in *risk metrics* — H39 wins on Sharpe and MaxDD while the larger PIT pool finds more cyclical winners, giving V39 a CAGR lead.
+*Standard limit order fill (pre-market limit at signal_px), IRA/tax-free, data through 2026-04-26.*
+
+The dollar-volume screen recovers CAGR by rotating out distressed names before collapse (ENRN, LEH, WCOM exited top-50 months before zero). The persistence gate lifts win rate and cuts MaxDD. The recovery re-entry adds CAGR by capturing V-shaped recoveries. The RS filter (R1_189) adds +25bp CAGR without expanding MaxDD — it filters out stocks in absolute uptrends that are nonetheless lagging the market (dead money). H39 is the apples-to-apples hindsight ceiling; not yet rerun under the current fill model.
 
 ---
 
@@ -79,14 +81,17 @@ cd $HOME/projects/trading/algo
 source venv/bin/activate
 
 # ── Single variant (full metrics + trade detail + concentration report) ───────
-python mixa/backtest/compare.py --variant 4          # V39 champion
+python mixa/backtest/compare.py --variant 7          # R1_189 champion
 
-# ── All three variants side-by-side ──────────────────────────────────────────
+# ── All variants side-by-side ─────────────────────────────────────────────────
 python mixa/backtest/compare.py
 
+# ── List all 32 variants with indices ─────────────────────────────────────────
+python mixa/backtest/compare.py --list
+
 # ── Tax profiles ──────────────────────────────────────────────────────────────
-python mixa/backtest/compare.py --variant 4 --tax-profile nyc   # NYC bracket
-python mixa/backtest/compare.py --variant 4 --tax-profile ira   # IRA (default)
+python mixa/backtest/compare.py --variant 7 --tax-profile nyc   # NYC bracket
+python mixa/backtest/compare.py --variant 7 --tax-profile ira   # IRA (default)
 # options: ira, nyc, ca, fl, tx  |  or --tax-short 0.35 --tax-long 0.20
 
 # ── Rolling 5-year window robustness ─────────────────────────────────────────
@@ -111,20 +116,20 @@ python mixa/live/runner_morning.py                # submit to IBKR
 
 `BacktestExecutor` uses `next_bar` MOO fill by default — the correct model for pre-open limit orders. **All headline numbers above use this model.**
 
-| Mode | Entry fill | Exit fill | CAGR | Sharpe | MaxDD |
-|------|-----------|-----------|------|--------|-------|
-| **`next_bar` f=0 (default)** | open[T+1] | open[T+1] | **+10.26%** | **0.76** | **20.5%** |
-| `next_bar` f=0.1 | open + 0.1×(high−open) | open − 0.1×(open−low) | +9.72% | 0.73 | 20.2% |
-| `legacy` | close × 1.001 | close × 0.999 | +9.24%† | 0.68† | 20.5% |
+| Mode | Entry fill | Exit fill | CAGR (R1_189) | Sharpe | MaxDD |
+|------|-----------|-----------|---------------|--------|-------|
+| **`next_bar` f=0 (default)** | open[T+1] | open[T+1] | **+9.46%** | **0.70** | **20.4%** |
+| `next_bar` f=0.1 | open + 0.1×(high−open) | open − 0.1×(open−low) | ~+9.0% | ~0.67 | ~20% |
+| `legacy` | close × 1.001 | close × 0.999 | n/a† | — | — |
 
-A limit order placed pre-market participates in the opening auction, which clears at a single price with no bid-ask spread. f=0 (MOO) is the correct default; f=0.1 is a conservative haircut. Legacy fills are unrealistic (fills gap-up buy entries at close price, ignoring that a buy limit is never filled above market).
+A limit order placed pre-market participates in the opening auction, which clears at a single price with no bid-ask spread. f=0 (MOO) is the correct default. Legacy fills are unrealistic (fills gap-up buy entries at close price, ignoring that a buy limit is never filled above market) and kept only for historical reference.
 
 ```bash
-python mixa/backtest/run.py --variant 4                       # next_bar MOO (default)
-python mixa/backtest/run.py --variant 4 --fill-mode legacy    # legacy mode (reference only)
+python mixa/backtest/run.py --variant 7                       # next_bar MOO (default)
+python mixa/backtest/run.py --variant 7 --fill-mode legacy    # legacy mode (reference only)
 ```
 
-†Legacy CAGR lower because it prices gap-down entry windfalls as close+0.1% rather than the cheaper open price; also inflated by unrealistic gap-up buy fills.
+†Legacy no longer tracked against headline metrics; standard limit order model is canonical as of 2026-04-26.
 
 ---
 
@@ -133,34 +138,34 @@ python mixa/backtest/run.py --variant 4 --fill-mode legacy    # legacy mode (ref
 `run.py` is the low-level single-run runner. Use it to isolate a specific variant, date window, or ticker.
 
 ```bash
-# Run variant 4 (V39) over full history
-python mixa/backtest/run.py --variant 4
+# Run variant 7 (R1_189) over full history
+python mixa/backtest/run.py --variant 7
 
 # Custom date window (YYYY-MM-DD or shorthands: 1y, 6mo, 30d)
-python mixa/backtest/run.py --variant 4 --from-date 5y
-python mixa/backtest/run.py --variant 4 --from-date 2007-06-01 --to-date 2009-12-31
+python mixa/backtest/run.py --variant 7 --from-date 5y
+python mixa/backtest/run.py --variant 7 --from-date 2007-06-01 --to-date 2009-12-31
 
 # Named stress scenarios (sets from/to and plot title in one flag)
-python mixa/backtest/run.py --variant 4 --scenario gfc
+python mixa/backtest/run.py --variant 7 --scenario gfc
 # options: full, dotcom, gfc, covid, rates, since-dotcom, since-gfc, since-covid, since-rates
 
 # Debug a single ticker (overrides the entire universe)
-python mixa/backtest/run.py --variant 4 --ticker NVDA
-python mixa/backtest/run.py --variant 4 --ticker BAC --from-date 5y
+python mixa/backtest/run.py --variant 7 --ticker NVDA
+python mixa/backtest/run.py --variant 7 --ticker BAC --from-date 5y
 
 # --detail: print a line for every position open and close
-python mixa/backtest/run.py --variant 4 --detail
-python mixa/backtest/run.py --variant 4 --ticker WFC --detail  # trace one whipsaw
+python mixa/backtest/run.py --variant 7 --detail
+python mixa/backtest/run.py --variant 7 --ticker WFC --detail  # trace one whipsaw
 
 # --no-progress: suppress the rolling equity/DD lines during simulation
-python mixa/backtest/run.py --variant 4 --no-progress
+python mixa/backtest/run.py --variant 7 --no-progress
 
 # Combine for focused debugging: single ticker, date window, full trade trace
-python mixa/backtest/run.py --variant 4 --ticker BAC --from-date 2022-01-01 --detail --no-progress
+python mixa/backtest/run.py --variant 7 --ticker BAC --from-date 2022-01-01 --detail --no-progress
 
 # Plot equity curve
-python mixa/backtest/run.py --variant 4 --plot
-python mixa/backtest/run.py --variant 4 --scenario gfc --plot-save /tmp/gfc.png
+python mixa/backtest/run.py --variant 7 --plot
+python mixa/backtest/run.py --variant 7 --scenario gfc --plot-save /tmp/gfc.png
 ```
 
 **What each flag prints:**
@@ -177,34 +182,42 @@ python mixa/backtest/run.py --variant 4 --scenario gfc --plot-save /tmp/gfc.png
 
 ## Variants
 
-16 variants in `backtest/variants_trend.py`. All use the dynamic PIT S&P 500 universe. Run `--list` to see indices.
+32 variants in `backtest/variants_trend.py`. All use the dynamic PIT S&P 500 universe. Run `--list` to see indices.
 
-| # | Label | Description | Status |
-|---|-------|-------------|--------|
-| 1 | V34 | PIT baseline — no quality filters | reference |
-| 2 | V35 | V34 + trailing dollar-volume top-50 screen | reference |
-| 3 | V36 | V35 + 10-day trend persistence | reference |
-| 4 | **V39** | **V36 + SPY recovery re-entry** | **champion** |
-| 5 | R1 | V39 + RS filter (beat SPY 6mo) | candidate |
-| 6 | R2 | V39 + rank rotation (top-name-not-held, min_hold=10) | closed — no long-run edge |
-| 7 | R3 | V39 + fallen-out rotation (longest-held exit) | closed — never fires |
-| 8 | RG1 | V39 + GLD cash substitute (idle cash → GLD) | closed — MaxDD +10pp |
-| 9 | V44 | V39 + no VIX halving in recovery mode | closed — negligible |
-| 10 | V45 | V39 + conditional persistence (5d reopen grace) | closed — net negative |
-| 11 | H39 | V39 signal on hindsight SP50 (ceiling) | reference ceiling |
-| 12–16 | M1–M5 | V39 momentum lookback sweep (3-1 / 6-1 / 9-1 / 12-1 / blend) | reference — 12-1 optimal |
+| # | Label | Type | Description | Status |
+|---|-------|------|-------------|--------|
+| 1 | V34 | StrategyConfig | PIT baseline — no quality filters | reference |
+| 2 | V35 | StrategyConfig | V34 + trailing dollar-volume top-50 screen | reference |
+| 3 | V36 | StrategyConfig | V35 + 10-day trend persistence | reference |
+| 4 | V39 | StrategyConfig | V36 + SPY recovery re-entry | prev champion |
+| 5 | R1 | StrategyConfig | V39 + RS filter (beat SPY 6mo, 126d) | closed — 9mo lookback superior |
+| 6 | R1_63 | StrategyConfig | V39 + RS filter (beat SPY 3mo, 63d) | reference |
+| **7** | **R1_189** | **StrategyConfig** | **V39 + RS filter (beat SPY 9mo, 189d)** | **champion** |
+| 8 | R1_252 | StrategyConfig | V39 + RS filter (beat SPY 12mo, 252d) | reference |
+| 9 | R1_QQQ | StrategyConfig | V39 + RS filter (beat QQQ 6mo) | closed — QQQ too restrictive |
+| 10 | R1_RSP | StrategyConfig | V39 + RS filter (beat RSP equal-weight 6mo) | closed — RSP too restrictive |
+| 11 | R1_MOO | BacktestConfig | R1 + MOO fills (fills always at open) | reference — fill model comparison |
+| 12 | R2 | StrategyConfig | V39 + rank rotation (top-name-not-held, min_hold=10) | closed — no long-run edge |
+| 13 | R3 | StrategyConfig | V39 + fallen-out rotation (longest-held exit) | closed — never fires |
+| 14 | RG1 | StrategyConfig | V39 + GLD cash substitute (idle cash → GLD) | closed — MaxDD +9.7pp |
+| 15 | V44 | StrategyConfig | V39 + no VIX halving in recovery mode | closed — negligible |
+| 16 | V45 | StrategyConfig | V39 + conditional persistence (5d reopen grace) | closed — net negative |
+| 17 | H39 | StrategyConfig | V39 signal on hindsight SP50 (ceiling) | reference ceiling |
+| 18–22 | M1–M5 | StrategyConfig | V39 momentum lookback sweep (3-1 / 6-1 / 9-1 / 12-1 / blend) | reference — 12-1 optimal |
+| 23–32 | LP_* | StrategyConfig | Limit-price offset sweep (2yr window, entry/exit ±0.5%/1.0%) | closed — 0% optimal |
 
 Closed research (in git history):
 - **V1–V33** — static SP50 universe (hindsight bias); documented in `docs/alpha_summary.md`
-- **V37a/b** — UVXY 15% hedge on gate close; net negative (−0.3pp CAGR vs V36)
+- **V37a/b** — UVXY 15% hedge on gate close; net negative (contango decay)
 - **V38** — 30-day reopen persistence waiver; exactly neutral
 
-**Infrastructure features** (available via `BacktestConfig` fields, inactive in V39):
+**Infrastructure features** (available via `StrategyConfig` fields, inactive by default):
 - `rotation_threshold / rotation_min_hold / rotation_fallen_out` — rank-based rotation (R2/R3)
 - `cash_substitute_etf / cash_substitute_min_buffer_pct` — parking ETF for idle cash (RG1); swap to BIL, TLT, IAU etc. by changing the ticker
-- `rs_filter / rs_lookback` — relative-strength filter vs SPY (R1)
+- `rs_filter / rs_lookback / rs_benchmark` — relative-strength filter vs benchmark (R1 series)
 - `trailing_stop` — ATR ratchet stop (tested as V43, net negative)
 - `earnings_exit_atr` — pre-earnings exit on cushion threshold (net negative)
+- `entry_limit_pct / exit_limit_pct` — limit price offsets (LP sweep confirms 0.0% optimal for both)
 
 ---
 
@@ -238,11 +251,14 @@ Active 41% of backtest period.
 ```
 mixa/
 ├── docs/alpha_summary.md     <- Full research log (V1–V45), conclusions
-├── docs/project_notes.md    <- This file; project overview and file structure
+├── docs/project_notes.md     <- This file; project overview and file structure
 ├── config.py                 <- BACKTEST_START, WASH_SALE_EXCLUDE, risk limits, tax rates
+├── compute.py                <- Shared precomputation (signals, dvol, regime, VIX, etc.)
+│                                Used by both backtest runner and live EOD runner.
 ├── backtest/
 │   ├── run.py                <- Single-run backtest CLI (--variant, --detail, --ticker, --scenario)
-│   ├── precompute.py         <- Shared precomputation (signals, dvol, regime, VIX, etc.)
+│   │                            Defines: StrategyConfig, SimulatorConfig, BacktestConfig, run_backtest()
+│   ├── precompute.py         <- Shim: re-exports from compute.py (backward compatibility)
 │   ├── params.py             <- V36 canonical params + Monte Carlo SEARCH_SPACE
 │   ├── runner.py             <- run_suite(): groups variants by precompute key; MC helpers
 │   ├── compare.py            <- Multi-variant comparison CLI (--variant, --list, --tax-profile)
@@ -250,13 +266,13 @@ mixa/
 │   ├── rolling.py            <- Rolling 5-year window analysis (V36/V39 vs SPY/QQQ)
 │   ├── plot_contenders.py    <- Equity chart + IRX robustness report
 │   ├── run_blended.py        <- Archived blended portfolio runner (V16 era)
-│   ├── variants_trend.py     <- Active trend variant definitions (V34/V35/V36/V39 + M-series)
+│   ├── variants_trend.py     <- Active trend variant definitions (32 variants)
 │   └── variants_mr.py        <- 5 MR variant definitions
 ├── engine/
 │   └── daily.py              <- DailyEngine: per-day strategy logic (shared by backtest + live)
 ├── executor/
 │   ├── base.py               <- AbstractExecutor, OrderRequest, OrderResult
-│   ├── backtest.py           <- BacktestExecutor (legacy close-px fills or next_bar intraday model)
+│   ├── backtest.py           <- BacktestExecutor (simulates fills using T+1 OHLCV)
 │   ├── deferred.py           <- DeferredExecutor: queues orders to SQLite; no broker needed (EOD)
 │   ├── ibkr.py               <- IBKRExecutor (ib_insync; paper + live via IB Gateway)
 │   └── approval_gate.py      <- Human-approval wrapper (optional gate before order submission)
@@ -271,12 +287,7 @@ mixa/
 │   ├── market.py             <- load_live_ohlcv(), is_market_day(), LOOKBACK_DAYS=550
 │   └── reconcile.py          <- IBKR vs StateStore reconciliation (PARTIAL/GHOST/UNTRACKED)
 ├── reports/
-│   └── daily.py              <- generate() for live runs; generate_eod() for signal sheets
-├── strategy/
-│   └── v39/
-│       └── reports/
-│           ├── backtest/     <- Backtest run reports ({run_name}.md)
-│           └── paper/        <- Paper/live run reports ({YYYY-MM-DD}_{run_name}.md)
+│   └── daily.py              <- generate() for live runs; generate_eod() for EOD signal sheets
 ├── data/
 │   ├── market.py             <- OHLCV + VIX + T-bill rate (yfinance / SQLite cache)
 │   ├── sp500_history.py      <- Point-in-time S&P 500 membership (fja05680/sp500 dataset)
@@ -290,8 +301,8 @@ mixa/
 │   ├── momentum.py           <- Cross-sectional 12-1 month momentum rank
 │   └── sector_rotation.py    <- Sector ETF momentum ranking
 └── docs/
-    ├── v39_vs_spy.png           <- V39 vs SPY equity curve (2000–present)
-    ├── v39_vs_aoa.png           <- V39 vs AOA equity curve (2008–present)
+    ├── r1_189_vs_h39.png        <- R1_189 vs V39 equity curve (2000–present)
+    ├── v39_vs_spy.png           <- V39 vs SPY equity curve (2000–present, archived)
     ├── rolling_5y_v39.png       <- Rolling 5-year CAGR chart (V39 vs V36 vs SPY/QQQ)
     ├── contenders_equity.png    <- V29/V31/V33 vs SPY/QQQ equity curve (archived)
     └── reports/
@@ -302,6 +313,48 @@ mixa/
 
 ---
 
+## Code architecture
+
+### Type hierarchy
+
+```
+StrategyConfig          — All strategy parameters: signals, filters, sizing, universe, tax.
+                          Used directly by the live EOD runner (runner_eod.py).
+                          31 of 32 VARIANTS are StrategyConfig instances.
+
+SimulatorConfig         — Backtest-only execution parameters: fill_mode, starting_capital.
+                          Documents what BacktestConfig adds over StrategyConfig.
+                          Replaced by IBKRConfig in live trading.
+
+BacktestConfig          — StrategyConfig + SimulatorConfig fields (inheritance).
+(StrategyConfig)          Used by compare.py / run.py for the one variant that needs
+                          non-default fill_mode (R1_MOO, fill_mode='moo').
+                          getattr fallbacks handle StrategyConfig instances transparently.
+```
+
+### Three executors
+
+| Executor | Fill model | Used by |
+|----------|-----------|---------|
+| `BacktestExecutor` | Simulates fills using T+1 OHLCV (next_bar or legacy) | backtest/run.py, compare.py |
+| `DeferredExecutor` | Queues orders to SQLite; no broker connection required | runner_eod.py |
+| `IBKRExecutor` | Submits limit orders to IB Gateway (paper port 4002, live 4001) | runner_morning.py, runner.py |
+
+All three implement `AbstractExecutor` (executor/base.py). `DeferredExecutor` is replaced by `IBKRExecutor` once IB Gateway is connected — the engine sees the same interface either way.
+
+### Shared computation path
+
+`compute.py` (top-level) is imported by both paths. The same precomputed signals (SMA100/300, dvol ranks, regime flags, VIX, momentum ranks, RS ratios) and the same `engine/daily.py` strategy logic run in backtest and live. No duplicate implementations.
+
+```
+Backtest path:       backtest/run.py → compute.precompute() → DailyEngine → BacktestExecutor
+Live EOD path:  runner_eod.py → compute.precompute() → DailyEngine → DeferredExecutor
+```
+
+`backtest/precompute.py` is a backward-compat shim that re-exports from `compute.py`.
+
+---
+
 ## Daily execution flow
 
 The live runner is split into two phases so signal computation (cheap, no broker) is cleanly separated from order submission (requires IBKR).
@@ -309,10 +362,10 @@ The live runner is split into two phases so signal computation (cheap, no broker
 ```
 4:20 PM ET — runner_eod.py (cron, no broker)
   ├── load OHLCV via yfinance / Polygon
-  ├── compute signals (SMA100/300, regime, dvol, momentum)
-  ├── run DailyEngine.step() with DeferredExecutor
+  ├── compute signals via compute.precompute() (SMA100/300, regime, dvol, momentum, RS)
+  ├── run DailyEngine.step() with DeferredExecutor  [strategy: R1_189, VARIANTS[6]]
   ├── save pending orders → ~/.mixa/state.db (pending_orders table)
-  └── write strategy/v39/reports/eod/YYYY-MM-DD.md → push to GitHub
+  └── write docs/reports/eod/YYYY-MM-DD.md → push to GitHub
 
 9:35 AM ET next morning — runner_morning.py (manual or scheduled)
   ├── read pending_orders from state.db
@@ -326,8 +379,8 @@ The live runner is split into two phases so signal computation (cheap, no broker
 
 The backtest (`backtest/run.py`) uses `BacktestExecutor` and is completely independent of this flow. Re-run any time:
 ```bash
-python mixa/backtest/run.py --variant 4               # V39, full history
-python mixa/backtest/run.py --variant 4 --scenario gfc # GFC stress
+python mixa/backtest/run.py --variant 7               # R1_189, full history
+python mixa/backtest/run.py --variant 7 --scenario gfc # GFC stress
 ```
 
 ---
