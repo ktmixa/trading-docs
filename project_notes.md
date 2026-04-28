@@ -99,15 +99,24 @@ python mixa/backtest/rolling.py
 python mixa/backtest/rolling.py --window 3      # 3-year windows
 python mixa/backtest/rolling.py --plot          # save chart to plots/
 
-# ── EOD signal runner (no broker required) ────────────────────────────────────
-python mixa/live/runner_eod.py                    # compute today's orders
-python mixa/live/runner_eod.py --verbose          # with signal details
-python mixa/live/scheduler.py --now               # same, via scheduler wrapper
-python mixa/live/scheduler.py                     # run daily at 4:20pm ET (cron also installed)
+# ── EOD signal runner — simulation account (no broker required) ───────────────
+python mixa/live/runner_eod.py                          # simulation mode (default)
+python mixa/live/runner_eod.py --mode simulation        # explicit
+python mixa/live/runner_eod.py --mode paper             # paper IBKR account
+python mixa/live/runner_eod.py --verbose                # with signal details
+python mixa/live/scheduler.py --now                     # same, via scheduler wrapper
+python mixa/live/scheduler.py                           # run daily at 4:20pm ET
 
-# ── Morning execution (requires IB Gateway on paper: port 4002, live: port 4001)
-python mixa/live/runner_morning.py --dry-run      # preview pending orders
-python mixa/live/runner_morning.py                # submit to IBKR
+# ── Morning runner ────────────────────────────────────────────────────────────
+python mixa/live/runner_morning.py                      # simulation: preview only
+python mixa/live/runner_morning.py --mode paper         # submit to IBKR paper
+python mixa/live/runner_morning.py --mode live          # submit to IBKR live
+python mixa/live/runner_morning.py --dry-run            # preview without submitting
+
+# ── Account management ────────────────────────────────────────────────────────
+python mixa/live/manage.py --status --mode simulation   # cash, positions, pending orders
+python mixa/live/manage.py --status --mode paper
+python mixa/live/manage.py --reset  --mode simulation   # wipe to $100k, no positions
 ```
 
 ---
@@ -281,7 +290,10 @@ mixa/
 │   └── schema.sql            <- SQLite schema (positions, trades, pending_orders, snapshots, etc.)
 ├── live/
 │   ├── runner_eod.py         <- Phase 1: EOD signals → pending orders in SQLite (no broker)
-│   ├── runner_morning.py     <- Phase 2: submit pending orders to IBKR after open
+│   │                            --mode simulation|paper|live drives which DB is used
+│   │                            Simulation mode: runs fill simulation at start of each run
+│   ├── runner_morning.py     <- Phase 2: simulation=preview, paper/live=submit to IBKR
+│   ├── manage.py             <- Account management CLI (--reset, --status per mode)
 │   ├── runner.py             <- All-in-one runner (connects IBKR; use after paper trading is live)
 │   ├── scheduler.py          <- NYSE-aware scheduler: fires runner_eod.py at 4:20pm ET
 │   ├── market.py             <- load_live_ohlcv(), is_market_day(), LOOKBACK_DAYS=550
@@ -337,18 +349,36 @@ BacktestConfig          — StrategyConfig + SimulatorConfig fields (inheritance
 | Executor | Fill model | Used by |
 |----------|-----------|---------|
 | `BacktestExecutor` | Simulates fills using T+1 OHLCV (next_bar or legacy) | backtest/run.py, compare.py |
-| `DeferredExecutor` | Queues orders to SQLite; no broker connection required | runner_eod.py |
-| `IBKRExecutor` | Submits limit orders to IB Gateway (paper port 4002, live 4001) | runner_morning.py, runner.py |
+| `DeferredExecutor` | Queues orders to SQLite; no broker connection required | runner_eod.py (all modes) |
+| `IBKRExecutor` | Submits limit orders to IB Gateway (paper port 4002, live 4001) | runner_morning.py (paper/live) |
 
-All three implement `AbstractExecutor` (executor/base.py). `DeferredExecutor` is replaced by `IBKRExecutor` once IB Gateway is connected — the engine sees the same interface either way.
+All three implement `AbstractExecutor` (executor/base.py). The engine never inspects which executor is in use — `DeferredExecutor` is swapped for `IBKRExecutor` at the morning runner level once IB Gateway is connected.
+
+### Four account modes and databases
+
+Each mode is fully isolated — separate SQLite file, separate position state, separate cash balance.
+
+| Mode | DB path | Position source of truth | Fill confirmation |
+|------|---------|--------------------------|-------------------|
+| `backtest` | in-memory only | `MemoryStateStore` (thrown away after run) | `BacktestExecutor` (T+1 bar) |
+| `simulation` | `~/.mixa/simulation.db` | SQLite — updated by EOD fill simulation | `_simulate_pending_fills()` at next EOD |
+| `paper` | `~/.mixa/paper.db` | IBKR paper account; SQLite is cache | `IBKRExecutor` (morning runner) |
+| `live` | `~/.mixa/live.db` | IBKR live account; SQLite is cache | `IBKRExecutor` (morning runner) |
+
+**Simulation** runs the full signal pipeline without a broker. At the start of each EOD run, yesterday's pending orders are replayed against today's actual OHLCV bar using `compute_limit_fill()` — the same logic as the backtest. Confirmed fills update the positions table and cash balance. Unfilled orders (gap-ups, etc.) are simply dropped.
+
+**Paper / live** will reconcile SQLite against the real IBKR account at each EOD run start (via `live/reconcile.py`) once IB Gateway is wired up. IBKR is always the source of truth; SQLite is a local cache for fast position reads.
 
 ### Shared computation path
 
 `compute.py` (top-level) is imported by both paths. The same precomputed signals (SMA100/300, dvol ranks, regime flags, VIX, momentum ranks, RS ratios) and the same `engine/daily.py` strategy logic run in backtest and live. No duplicate implementations.
 
 ```
-Backtest path:       backtest/run.py → compute.precompute() → DailyEngine → BacktestExecutor
-Live EOD path:  runner_eod.py → compute.precompute() → DailyEngine → DeferredExecutor
+Backtest:    backtest/run.py  → compute.precompute() → DailyEngine → BacktestExecutor
+Simulation:  runner_eod.py   → _simulate_pending_fills() → compute.precompute() → DailyEngine → DeferredExecutor
+Paper/live:  runner_eod.py   → reconcile(IBKR) → compute.precompute() → DailyEngine → DeferredExecutor
+                                                          ↓ next morning
+                                               runner_morning.py → IBKRExecutor
 ```
 
 `backtest/precompute.py` is a backward-compat shim that re-exports from `compute.py`.
@@ -359,29 +389,93 @@ Live EOD path:  runner_eod.py → compute.precompute() → DailyEngine → Defer
 
 The live runner is split into two phases so signal computation (cheap, no broker) is cleanly separated from order submission (requires IBKR).
 
+### Simulation mode (current — no broker)
+
 ```
-4:20 PM ET — runner_eod.py (cron, no broker)
+4:20 PM ET — runner_eod.py --mode simulation  (cron)
   ├── load OHLCV via yfinance / Polygon
+  ├── [NEW] _simulate_pending_fills(): replay yesterday's pending orders against
+  │         today's OHLCV bar using compute_limit_fill() — same logic as backtest.
+  │         Filled buys → save_position() in simulation.db; fills → subtract cash.
+  │         Filled sells → close_position(); cash returned. Unfilled → dropped.
+  ├── load confirmed positions + cash from simulation.db (post fill-sim)
   ├── compute signals via compute.precompute() (SMA100/300, regime, dvol, momentum, RS)
   ├── run DailyEngine.step() with DeferredExecutor  [strategy: R1_189, VARIANTS[6]]
-  ├── save pending orders → ~/.mixa/state.db (pending_orders table)
+  ├── save pending orders → ~/.mixa/simulation.db (pending_orders table)
   └── write docs/reports/eod/YYYY-MM-DD.md → push to GitHub
 
-9:35 AM ET next morning — runner_morning.py (manual or scheduled)
-  ├── read pending_orders from state.db
-  ├── connect to IBKR
-  ├── submit each order as limit near prior close
+8:30 AM ET — runner_morning.py --mode simulation
+  └── prints pending orders for review (no submission — fills happen at next EOD)
+```
+
+### Paper / live mode (once IBKR is connected)
+
+```
+4:20 PM ET — runner_eod.py --mode paper|live  (cron)
+  ├── load OHLCV
+  ├── reconcile SQLite cache against IBKR actual positions (live/reconcile.py)
+  ├── load confirmed positions + cash (from reconciled SQLite)
+  ├── compute signals + run engine step
+  └── save pending orders → ~/.mixa/paper.db or live.db
+
+8:30 AM ET — runner_morning.py --mode paper|live
+  ├── read pending_orders from DB
+  ├── connect to IBKR (port 4002 paper / 4001 live)
+  ├── submit each order as pre-market limit at signal_px (prior close)
   ├── log fills → orders audit table
   └── clear pending_orders
 ```
 
-**Current status:** EOD runner is scheduled and writing reports. Morning runner is wired but IBKR is not yet connected — no orders will be submitted until `runner_morning.py` is run manually.
+**Current status:** Simulation mode is live — EOD runner is scheduled and writing reports to `docs/reports/eod/`. Simulation DB is at `~/.mixa/simulation.db`, initialised at $100,000 cash. Morning runner for simulation is display-only. IBKR not yet connected.
 
 The backtest (`backtest/run.py`) uses `BacktestExecutor` and is completely independent of this flow. Re-run any time:
 ```bash
 python mixa/backtest/run.py --variant 7               # R1_189, full history
 python mixa/backtest/run.py --variant 7 --scenario gfc # GFC stress
 ```
+
+---
+
+## Account management
+
+`live/manage.py` is the CLI for inspecting and resetting account state. It is mode-aware — each mode has its own isolated database.
+
+### Status
+
+```bash
+python mixa/live/manage.py --status --mode simulation
+python mixa/live/manage.py --status --mode paper
+python mixa/live/manage.py --status --mode live
+```
+
+Prints: cash balance, open positions (ticker, shares, entry price, stop, date), pending orders, cooldowns, regime gate state.
+
+### Reset
+
+```bash
+python mixa/live/manage.py --reset --mode simulation   # interactive confirm required
+```
+
+Clears positions, pending orders, cooldowns, regime state, and daily snapshots. Sets cash back to $100,000. Keeps the trades and order audit log (permanent history).
+
+**Only available for simulation.** Paper and live accounts are owned by IBKR — positions there can only be managed via the IBKR portal or TWS. Running `--reset` on paper/live prints `NOT IMPLEMENTED` with a TODO to pull account state from the broker API.
+
+### Cash tracking
+
+Cash in the simulation DB reflects confirmed fills only (updated by `_simulate_pending_fills()` at each EOD run). It is not updated by the engine step itself — deferred orders are pending, not confirmed. On T0 (first run or after reset) cash starts at $100,000.
+
+For paper/live, cash will be read from the IBKR account at reconcile time once the broker is connected.
+
+### DB locations
+
+| Mode | DB path | Notes |
+|------|---------|-------|
+| simulation | `~/.mixa/simulation.db` | Self-contained; no broker needed |
+| paper | `~/.mixa/paper.db` | Requires IBKR paper (port 4002) |
+| live | `~/.mixa/live.db` | Requires IBKR live (port 4001) |
+| backtest | in-memory | No file; MemoryStateStore |
+
+Pass `--db /path/to/custom.db` to any runner to override the default path.
 
 ---
 
