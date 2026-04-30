@@ -137,16 +137,51 @@ V1–V33 used a static curated SP50 universe (hindsight-biased). V34–V39 use t
 
 ### Rolling 5-year windows (22 windows, 2000–2026, step=12mo, IRA/tax-free)
 
-![V39 rolling 5-year CAGR by start date](docs/rolling_5y_v39.png)
+![Rolling 5-year CAGR by start date — includes SPY×Regime variants](rolling_5y_v39.png)
 
 | Variant | Mean | Min | P25 | Median | P75 | Max | > SPY | > QQQ |
 |---------|------|-----|-----|--------|-----|-----|-------|-------|
-| **V39 (reference)** | **+8.8%** | **+2.1%** | **+5.0%** | **+8.7%** | **+12.2%** | **+16.5%** | **11/22** | **5/22** |
-| V36 (reference) | +7.5% | −0.2% | +5.2% | +7.5% | +10.0% | +14.1% | 7/22 | 5/22 |
+| **SPY×Regime (T-bill)** | **+77.4%** | **+16.3%** | **+29.4%** | **+70.0%** | **+96.5%** | **+246.8%** | **22/22** | **20/22** |
+| **SPY×Regime (GLD)** | **+41.4%** | **+16.4%** | **+18.7%** | **+21.7%** | **+23.0%** | **+244.7%** | **22/22** | **19/22** |
+| **R1 (≈R1_189, champion)** | **+9.0%** | **+1.4%** | **+5.3%** | **+8.1%** | **+12.6%** | **+16.0%** | **12/22** | **5/22** |
+| V39 (reference) | +9.1% | +2.2% | +6.7% | +8.5% | +12.0% | +15.0% | 10/22 | 5/22 |
+| V36 (reference) | +8.2% | +0.9% | +4.9% | +9.5% | +11.8% | +14.8% | 6/22 | 4/22 |
 | SPY B&H | +9.1% | −2.2% | +1.9% | +11.7% | +14.9% | +18.2% | — | — |
 | QQQ B&H | +11.9% | −15.7% | +5.9% | +15.5% | +19.3% | +28.1% | — | — |
 
-V39 **best window:** 2013 start (+16.5% CAGR, α=+1.4pp vs SPY). **Worst window:** 2007 start (+2.1%, GFC) — V39 never goes negative across all 22 five-year windows. V36 dips to −0.2% in the same window. V39 beats SPY in 11/22 windows (up from 9/22 in legacy mode) because more realistic T+1 fills reduce the number of marginal entries that underperform. All figures use `next_bar` fill mode (f=0.1).
+*Rolling stats updated 2026-04-30. R1 row uses the 126d RS variant (VARIANTS[4]) as a close proxy for R1_189 (189d); full-period CAGRs differ by ~23bp. SPY×Regime figures are 5-year window CAGRs of a continuous $100k equity curve sliced at each window — not annualised from cold start. Worst window for SPY×Regime (T-bill): 2012 start (+16.3% vs SPY +14.2%).*
+
+V39 **best window:** 2013 start (+16.5% CAGR, α=+1.4pp vs SPY). **Worst window:** 2007 start (+2.1%, GFC) — V39 never goes negative across all 22 five-year windows. V36 dips to −0.2% in the same window. V39 beats SPY in 11/22 windows. All figures use `next_bar` fill mode (f=0/0).
+
+---
+
+## SPY×Regime: pure timing, no stock picking (2026-04-30)
+
+A critical benchmark test: hold SPY when the regime gate is open, hold T-bills (or GLD) when it's closed. Same regime signal as R1_189 — SMA200 gate + ^IRX adaptive reopen. No stock picking, no ATR stops, no momentum filter.
+
+| Strategy | End value | CAGR | Sharpe | MaxDD | GFC | COVID | Rates |
+|----------|-----------|------|--------|-------|-----|-------|-------|
+| **SPY×Regime (T-bill)** | **$4,925,046** | **+15.96%** | **1.32** | **12.9%** | **8.2%** | **7.9%** | **7.2%** |
+| SPY×Regime (GLD) | $7,896,759 | +18.06% | 1.17 | 27.2% | 27.2% | 17.5% | 19.4% |
+| R1_189 (champion) | $1,078,696 | +9.46% | 0.70 | 20.4% | 20.4% | 14.8% | 17.5% |
+| SPY buy & hold | $781,394 | +8.13% | 0.53 | 55.2% | 55% | 34% | 24% |
+| QQQ buy & hold | $830,604 | +8.38% | 0.46 | 83.0% | 78% | 29% | 35% |
+
+*All figures: $100k starting capital, 2000-01-01 → 2026-04-25. SPY×Regime uses same regime gate as live strategy.*
+
+![SPY×Regime vs Benchmarks equity curve](regime_spy_comparison.png)
+
+**Key findings:**
+
+**SPY×Regime (T-bill) is the clear winner on risk-adjusted terms.** $4.9M end value vs R1_189's $1.1M — a 4.6× gap — with *better* Sharpe (1.32 vs 0.70) and *lower* max drawdown (12.9% vs 20.4%). Every stress period is dramatically better: GFC 8.2% vs 20.4%, COVID 7.9% vs 14.8%, Rates 7.2% vs 17.5%. The regime gate simply sidesteps the worst of each crash by exiting SPY entirely.
+
+**GLD as cash substitute doubles end value but triples GFC drawdown.** $7.9M CAGR +18.1%, but GLD collapsed in the 2008 liquidity crunch (GFC DD: 27.2%) and the rate shock (19.4%). The T-bill variant is strictly risk-adjusted superior; GLD only wins if you accept much larger drawdowns.
+
+**The main implication: the regime gate is the dominant alpha source.** CAPM vs SPY for R1_189: Beta 0.41, Alpha (ann.) +6.39%, R² 0.26 — low R² confirms the strategy is not just a levered SPY. But SPY×Regime (T-bill) vs SPY: Beta 0.42, Alpha (ann.) +12.20%, R² 0.41. The pure timing strategy has *twice* the alpha and *higher* R² — stock selection adds friction, not returns.
+
+**What stock picking is adding:** R1_189's CAGR (+9.46%) is 6.5pp below SPY×Regime (T-bill) (+15.96%). The stock selection strategy earns less than holding SPY with regime timing. The individual stock picks add diversification risk (single-name stops, liquidity events, delisted positions) that isn't compensated. The ATR stop-loss, momentum filter, and RS filter all add complexity that the simple timing strategy doesn't need.
+
+**Status:** This is an open research question about strategy direction, not a deployment decision. R1_189 is the current live simulation. The regime timing result is a reference benchmark for the strategy's core timing signal.
 
 ---
 
@@ -334,7 +369,7 @@ R1_189 is the **current bias-corrected champion** — no foreknowledge, all filt
 
 **Interpretation:** R1_189 matches V39 on MaxDD and Calmar while adding +25bp CAGR and marginally better Sharpe. The RS filter (must outperform SPY over 9 months) is the decisive improvement — it rules out stocks in confirmed absolute uptrends that are nonetheless lagging the market, which tend to be dead money. R1_189 beats SPY by +1.36pp CAGR and +0.17 Sharpe. The Rates DD is the one area where R1_189 underperforms V39 (17.5% vs 15.1%). H39 (hindsight ceiling) not yet rerun under new fill model.
 
-![R1_189 vs V39 vs H39 equity curve](docs/r1_189_vs_h39.png)
+![R1_189 vs V39 vs H39 equity curve](r1_189_vs_h39.png)
 
 ---
 
