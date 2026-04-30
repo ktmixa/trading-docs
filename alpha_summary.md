@@ -141,17 +141,17 @@ V1–V33 used a static curated SP50 universe (hindsight-biased). V34–V39 use t
 
 | Variant | Mean | Min | P25 | Median | P75 | Max | > SPY | > QQQ |
 |---------|------|-----|-----|--------|-----|-----|-------|-------|
-| **SPY×Regime (T-bill)** | **+77.4%** | **+16.3%** | **+29.4%** | **+70.0%** | **+96.5%** | **+246.8%** | **22/22** | **20/22** |
-| **SPY×Regime (GLD)** | **+41.4%** | **+16.4%** | **+18.7%** | **+21.7%** | **+23.0%** | **+244.7%** | **22/22** | **19/22** |
-| **R1 (≈R1_189, champion)** | **+9.0%** | **+1.4%** | **+5.3%** | **+8.1%** | **+12.6%** | **+16.0%** | **12/22** | **5/22** |
-| V39 (reference) | +9.1% | +2.2% | +6.7% | +8.5% | +12.0% | +15.0% | 10/22 | 5/22 |
-| V36 (reference) | +8.2% | +0.9% | +4.9% | +9.5% | +11.8% | +14.8% | 6/22 | 4/22 |
+| **SPY×Regime (T-bill)** | **+16.5%** | **+9.8%** | **+14.3%** | **+16.6%** | **+19.2%** | **+25.3%** | **21/22** | **15/22** |
+| **SPY×Regime (GLD)** | **+18.7%** | **+10.3%** | **+16.5%** | **+18.7%** | **+21.9%** | **+28.3%** | **22/22** | **19/22** |
+| **R1 (≈R1_189, champion)** | **+8.8%** | **+1.4%** | **+4.6%** | **+8.3%** | **+12.5%** | **+16.0%** | **12/22** | **5/22** |
+| V39 (reference) | +8.9% | +2.2% | +6.1% | +8.4% | +11.8% | +15.0% | 9/22 | 5/22 |
+| V36 (reference) | +8.1% | +0.9% | +4.4% | +9.1% | +11.8% | +14.8% | 6/22 | 4/22 |
 | SPY B&H | +9.1% | −2.2% | +1.9% | +11.7% | +14.9% | +18.2% | — | — |
 | QQQ B&H | +11.9% | −15.7% | +5.9% | +15.5% | +19.3% | +28.1% | — | — |
 
-*Rolling stats updated 2026-04-30. R1 row uses the 126d RS variant (VARIANTS[4]) as a close proxy for R1_189 (189d); full-period CAGRs differ by ~23bp. SPY×Regime figures are 5-year window CAGRs of a continuous $100k equity curve sliced at each window — not annualised from cold start. Worst window for SPY×Regime (T-bill): 2012 start (+16.3% vs SPY +14.2%).*
+*Rolling stats corrected 2026-04-30 (bug fix: tbill_rate was stored as annual % not decimal, causing /252 to apply 100× too high a rate). R1 row uses the 126d RS variant (VARIANTS[4]) as a close proxy for R1_189 (189d); full-period CAGRs differ by ~23bp. SPY×Regime figures are 5-year window CAGRs of a continuous $100k equity curve sliced at each window — not annualised from cold start. Worst window for SPY×Regime (T-bill): 2000 start (+9.8% vs SPY −2.2%, α=+12.0pp) — beats SPY in 21/22 windows.*
 
-V39 **best window:** 2013 start (+16.5% CAGR, α=+1.4pp vs SPY). **Worst window:** 2007 start (+2.1%, GFC) — V39 never goes negative across all 22 five-year windows. V36 dips to −0.2% in the same window. V39 beats SPY in 11/22 windows. All figures use `next_bar` fill mode (f=0/0).
+V39 **best window:** 2013 start (+15.0% CAGR, α=−0.1pp vs SPY). **Worst window:** 2007 start (+2.2%, GFC) — V39 never goes negative across all 22 five-year windows. V36 dips to +0.9% in the same window. V39 beats SPY in 9/22 windows. All figures use `next_bar` fill mode (f=0/0).
 
 ---
 
