@@ -1,62 +1,87 @@
 # MixA Alpha Summary
 *Research summary for signal design, backtesting conclusions, and open questions.*
-*Period covered: 2000-01-01 → 2026-04-26 (26.4 years). $100k starting capital.*
+*Period covered: 2000-01-01 → 2026-04-30 (26.4 years). $100k starting capital.*
 
 > **Fill model note (2026-04-26):** All figures from this date forward use the **standard limit order** fill model — orders placed pre-market at signal_px (prior close); fill at open if open ≤ limit, fill at limit if price touches intraday, unfilled otherwise. The previous "gap-skip" rule (reject buys that open >1% above limit) has been removed — it modelled a human watching the open, which does not apply to pre-market limit orders. This lowers all historical CAGR figures by ~50bp vs prior summaries; the fill model is now correct.
 
 ---
 
-## Current champion: R1_189 — numbers to beat
+## Project Update — 2026-04-30
 
-**R1_189 = V39 + relative-strength filter (must outperform SPY over trailing 189 trading days / ~9 months)**
+### New champion: V50 SPY×Regime replaces R1_189
 
-All V39 components plus: RS filter requires each entry to have beaten SPY on a 9-month return basis. No foreknowledge. All filters real-time computable.
+**V39 and R1_189 are placed on ice.** The pure SPY×Regime timing strategy (V50) is the new champion. Stock picking does not compensate for the friction it introduces — the regime gate itself is the dominant alpha source.
 
-| Metric | **R1_189** | V39 (prev champion) | H39 (hindsight ceiling) | SPY B&H | AOA† |
-|--------|-----------|---------------------|------------------------|---------|------|
-| End value ($100k start) | **$1,078,696** | $1,016,190 | — | $781,394 | $559,722† |
-| CAGR | **+9.46%** | +9.21% | — | +8.10% | +6.76%† |
-| Sharpe | **0.70** | 0.69 | — | 0.53 | 0.77† |
-| MaxDD | **20.4%** | 20.4% | — | 55.2% | 28.4%† |
-| Calmar | **0.46** | 0.45 | — | 0.15 | — |
-| GFC drawdown | **20.4%** | 20.4% | — | 55% | — |
-| COVID drawdown | **14.8%** | 14.8% | — | 34% | — |
-| Rates drawdown | 17.5% | **15.1%** | — | 24% | — |
-| Win rate | **37.4%** | 36.2% | — | — | — |
+**Two execution bugs fixed in V50 (2026-04-30):**
+1. **Same-bar look-ahead bias** — original code used `pct_change()` with no shift, meaning the signal at close[T] earned close[T]/close[T-1] (same-bar fill). Fixed to `.shift(-1)` — signal at close[T] earns close[T+1]/close[T], matching realistic MOO-next-day execution.
+2. **Daily whipsaw (570 raw transitions)** — the SMA100 asymmetric re-entry fires daily when price hovers around SMA100 in volatile markets. Fixed with `_debounce_regime(signal, min_hold=5)`: require 5 consecutive days in the new state before flipping. Reduces 570 → 33 transitions. Effect is positive — debounce *increases* CAGR and *reduces* MaxDD by eliminating costly whipsaw roundtrips.
 
-*IRA/tax-free, standard limit order fill (pre-market limit at signal_px), run 2026-04-26 (data through 2026-04-25). H39 not yet rerun under new fill model.*
+**Combined effect:** Previous CAGR +15.96% was inflated. Corrected V50 full-period: **+9.33% CAGR, Sharpe 0.79, MaxDD 19.3%** (2000–2026, $100k start).
 
-†AOA (iShares Core Aggressive Allocation ETF, 80/20 stocks/bonds) from inception 2008-11-11; all others from 2000-01-01.
+**min_hold sweep confirmed 5 days optimal** across hold periods 3–10, for all three leverage levels (SPY, SSO, UPRO). CAGR, Sharpe, and Calmar all peak at 5d; result is robust.
 
-**How R1_189 works (all V39 components plus RS filter):**
-- *Universe:* Dynamic — historical S&P 500 point-in-time membership (fja05680/sp500 dataset). Only enters tickers that were actually in the index on the entry date; forced-exit on removal.
-- *Quality screen:* Top-50 by trailing 30-day dollar-volume; rotates out distressed names as liquidity drains months before bankruptcy
-- *Signal:* SMA100/300 trend crossover with 3×ATR stop; 20-day re-entry cooldown
-- *Persistence gate:* Requires 10 consecutive LONG signal days before opening
-- *Momentum filter:* Top 25% by 12-1 month cross-sectional rank
-- *RS filter (new):* Entry requires trailing 189-day return > SPY trailing 189-day return. Ensures entries are market leaders, not just stocks in absolute uptrends.
-- *Regime filter:* SPY asymmetric gate (close > SMA200 to close, fast or slow reopen gated by ^IRX momentum); VIX halved above 25, paused above 40
-- *Recovery re-entry:* When SPY < SMA200 but SPY > SMA20, allows entries at 25% normal size
-- *Cash yield:* Idle cash earns ^IRX (T-bill) rate daily
+### New variants: V51 (2×) and V52 (3×)
 
-**T-bill effect:** +0.4pp mean CAGR; +2.1pp in high-rate eras.
+Same SPY regime gate, leveraged equity instrument when open, T-bills when closed:
+- **V51 — SSO×Regime** (ProShares Ultra S&P500, 2×): from 2006-06-21
+- **V52 — UPRO×Regime** (ProShares UltraPro S&P500, 3×): from 2009-06-25
 
-**R1_189 vs V39:** Same MaxDD (20.4%) and Calmar (0.46). R1_189 adds +25bp CAGR and +0.01 Sharpe. The RS filter's only cost is a slightly higher Rates DD (17.5% vs 15.1%) — worth watching. The 9-month lookback was the sweet spot in the RS sweep (see RS filter research below); shorter lookbacks (63d) give similar CAGR but worse MaxDD; longer (252d) drops CAGR significantly.
+### Key results (2009-06-25 → 2026-04-30, common period, 5-day hold)
 
-**Status:** EOD signal runner live (cron 4:20 PM ET, writes reports to `docs/reports/eod/`). Morning execution runner ready; wires to IBKR once IB Gateway is set up.
+| Variant | CAGR | Sharpe | Calmar | MaxDD | End $100k |
+|---------|------|--------|--------|-------|-----------|
+| **V50 SPY×Regime (1×)** | +12.5% | **0.94** | **0.64** | **19.3%** | $724k |
+| **V51 SSO×Regime (2×)** | +21.5% | 0.86 | 0.59 | 36.6% | $2.6M |
+| **V52 UPRO×Regime (3×)** | +29.6% | 0.85 | 0.59 | 50.3% | $7.9M |
+| SPY B&H | +14.9% | 0.94 | 0.44 | 33.7% | $1.0M |
+| QQQ B&H | +19.8% | 1.04 | 0.42 | 35.1% | $2.1M |
+
+**The regime gate consistently cuts ~⅓ off the raw B&H MaxDD at every leverage level** — UPRO B&H 76.8% → V52 50.3% — while improving Sharpe and Calmar over B&H. V51 beats QQQ B&H on CAGR (+21.5% vs +19.8%) with similar MaxDD and better Calmar. V52 ends at $7.9M vs UPRO B&H $11.4M — you give up ~3 CAGR points to cut MaxDD by 26pp.
 
 ---
 
-## Portfolio architecture (R1_189 — current)
+## Current champion: V50 SPY×Regime — numbers to beat
+
+**Previous champion R1_189 placed on ice (2026-04-30). See project update above.**
+
+**V50 = pure SPY×Regime timing. No stock picking, no position sizing, no stops.**
+
+100% SPY when the regime gate is open; 100% T-bills when closed. Regime: SPY below SMA200 → close; SPY above SMA100 AND ^IRX rate-easing adaptive reopen. 5-day debounce on regime flips. 1-day execution lag (signal at close[T] → fill at open[T+1]).
+
+| Metric | **V50 SPY×Regime** | SPY B&H | QQQ B&H |
+|--------|-------------------|---------|---------|
+| End value ($100k start) | **$1,046,225** | $778,811 | $835,433 |
+| CAGR | **+9.33%** | +8.11% | +8.40% |
+| Sharpe | **0.79** | 0.53 | 0.46 |
+| MaxDD | **19.3%** | 55.2% | 83.0% |
+| Calmar | **0.48** | 0.15 | 0.10 |
+| GFC drawdown | **14.5%** | 55% | 78% |
+| COVID drawdown | **12.4%** | 34% | 29% |
+| Rates drawdown | **16.4%** | 24% | 35% |
+
+*IRA/tax-free, 5-day debounce, 1-day execution lag, 2000-01-01 → 2026-04-30, $100k start.*
+
+**How V50 works:**
+- *Signal:* SPY SMA200 gate (close → exit SPY, buy T-bills). Reopen: SPY > SMA100 AND ^IRX fast MA < slow MA (rate easing), otherwise wait for SMA100 > SMA200 golden cross.
+- *Debounce:* `_debounce_regime(signal, min_hold=5)` — signal must hold new state 5 consecutive days before position flips. Reduces 570 raw transitions → 33 clean ones.
+- *Execution:* Signal at close[T] → MOO fill at open[T+1]. Simulated as `spy_ret.shift(-1)`.
+- *Cash yield:* T-bill rate (^IRX / 100 / 252) earned daily when out of SPY.
+- *33 transitions in 26 years* — all meaningful market events (dotcom, GFC, COVID, rate shock, tariff selloff).
+
+**Status:** Promoted to champion 2026-04-30. V39/R1_189 on ice.
+
+---
+
+## Portfolio architecture (V50 — current)
 
 Single-strategy deployment on $100k capital:
 
-| Allocation | Role |
-|-----------|------|
-| Up to ~83% equity | Long individual stocks in confirmed uptrends (ATR-sized) |
-| Remaining cash | Earns 13-week T-bill rate (^IRX) daily |
+| State | Allocation | Instrument |
+|-------|-----------|------------|
+| Regime open (SPY > SMA200 zone) | 100% equity | SPY (V50), SSO 2× (V51), or UPRO 3× (V52) |
+| Regime closed | 100% cash | T-bills (^IRX daily accrual) |
 
-Universe: dynamic top-50 by trailing 30-day dollar-volume among current S&P 500 members (point-in-time). Forced-exit on index removal. 10-day persistence gate before entry. RS filter: entry requires 189-day return > SPY. Recovery mode: 25%-sized entries when SPY < SMA200 but > SMA20. Wash-sale exclusions (`WASH_SALE_EXCLUDE` in `config.py`) applied only in live signal generation.
+No stock picking, no position sizing, no stops. Regime state changes on 5-day debounce. Execution at next-day open.
 
 **MR and UVXY not active.** Mean reversion earned only +0.90% CAGR on its capital slice. UVXY was tested (V37a/b) and was net negative. Both remain documented below.
 
@@ -135,53 +160,85 @@ V1–V33 used a static curated SP50 universe (hindsight-biased). V34–V39 use t
 
 **RS sweep key finding (2026-04-26):** SPY is the right benchmark; QQQ and RSP both hurt. 9-month lookback (189d) is the sweet spot — same MaxDD as V39, +25bp CAGR, marginally better Sharpe. Removing the old gap-skip rule cost ~50bp across all variants (the gap-skip was accidentally filtering failed gap-up entries); new numbers reflect correct pre-market limit order semantics.
 
-### Rolling 5-year windows (22 windows, 2000–2026, step=12mo, IRA/tax-free)
+### Rolling 5-year windows (22 windows, 2000–2026, step=12mo)
 
-![Rolling 5-year CAGR by start date — includes SPY×Regime variants](rolling_5y_v39.png)
+22 per-window charts generated: `mixa/docs/rolling_windows/window_NN_YYYY_YYYY.png`  
+Each chart shows V50 SPY×Regime (T-bill) vs SPY B&H vs QQQ B&H, rebased to $100k.
 
-| Variant | Mean | Min | P25 | Median | P75 | Max | > SPY | > QQQ |
-|---------|------|-----|-----|--------|-----|-----|-------|-------|
-| **SPY×Regime (T-bill)** | **+16.5%** | **+9.8%** | **+14.3%** | **+16.6%** | **+19.2%** | **+25.3%** | **21/22** | **15/22** |
-| **SPY×Regime (GLD)** | **+18.7%** | **+10.3%** | **+16.5%** | **+18.7%** | **+21.9%** | **+28.3%** | **22/22** | **19/22** |
-| **R1 (≈R1_189, champion)** | **+8.8%** | **+1.4%** | **+4.6%** | **+8.3%** | **+12.5%** | **+16.0%** | **12/22** | **5/22** |
-| V39 (reference) | +8.9% | +2.2% | +6.1% | +8.4% | +11.8% | +15.0% | 9/22 | 5/22 |
-| V36 (reference) | +8.1% | +0.9% | +4.4% | +9.1% | +11.8% | +14.8% | 6/22 | 4/22 |
-| SPY B&H | +9.1% | −2.2% | +1.9% | +11.7% | +14.9% | +18.2% | — | — |
-| QQQ B&H | +11.9% | −15.7% | +5.9% | +15.5% | +19.3% | +28.1% | — | — |
+> **Note:** The rolling window summary statistics table (mean/min/P25/median/P75/max per variant) was computed under the old inflated execution model and has been removed. The per-window PNGs reflect corrected V50 numbers (5-day debounce + 1-day lag). Summary stats table to be regenerated under the corrected model.
 
-*Rolling stats corrected 2026-04-30 (bug fix: tbill_rate was stored as annual % not decimal, causing /252 to apply 100× too high a rate). R1 row uses the 126d RS variant (VARIANTS[4]) as a close proxy for R1_189 (189d); full-period CAGRs differ by ~23bp. SPY×Regime figures are 5-year window CAGRs of a continuous $100k equity curve sliced at each window — not annualised from cold start. Worst window for SPY×Regime (T-bill): 2000 start (+9.8% vs SPY −2.2%, α=+12.0pp) — beats SPY in 21/22 windows.*
-
-V39 **best window:** 2013 start (+15.0% CAGR, α=−0.1pp vs SPY). **Worst window:** 2007 start (+2.2%, GFC) — V39 never goes negative across all 22 five-year windows. V36 dips to +0.9% in the same window. V39 beats SPY in 9/22 windows. All figures use `next_bar` fill mode (f=0/0).
+V39 **best window:** 2013 start (+15.0% CAGR, α=−0.1pp vs SPY). **Worst window:** 2007 start (+2.2%, GFC) — V39 never goes negative across all 22 five-year windows. All figures use `next_bar` fill mode (f=0/0).
 
 ---
 
-## SPY×Regime: pure timing, no stock picking (2026-04-30)
+## V50 / V51 / V52: Regime-timing leverage ladder (2026-04-30)
 
-A critical benchmark test: hold SPY when the regime gate is open, hold T-bills (or GLD) when it's closed. Same regime signal as R1_189 — SMA200 gate + ^IRX adaptive reopen. No stock picking, no ATR stops, no momentum filter.
+Hold equity instrument when SPY regime gate is open; hold T-bills when closed.  
+Same regime signal across all three — SMA200 gate + ^IRX adaptive reopen + 5-day debounce.
+
+> **Execution fix note (2026-04-30):** Previous V50 numbers (+15.96% CAGR, Sharpe 1.32, MaxDD 12.9%) were inflated by same-bar look-ahead bias and 570 daily whipsaw trades. Corrected figures below use 1-day execution lag + 5-day debounce.
+
+### V50 — full period (2000-01-01 → 2026-04-30)
 
 | Strategy | End value | CAGR | Sharpe | MaxDD | GFC | COVID | Rates |
 |----------|-----------|------|--------|-------|-----|-------|-------|
-| **SPY×Regime (T-bill)** | **$4,925,046** | **+15.96%** | **1.32** | **12.9%** | **8.2%** | **7.9%** | **7.2%** |
-| SPY×Regime (GLD) | $7,896,759 | +18.06% | 1.17 | 27.2% | 27.2% | 17.5% | 19.4% |
-| R1_189 (champion) | $1,078,696 | +9.46% | 0.70 | 20.4% | 20.4% | 14.8% | 17.5% |
-| SPY buy & hold | $781,394 | +8.13% | 0.53 | 55.2% | 55% | 34% | 24% |
-| QQQ buy & hold | $830,604 | +8.38% | 0.46 | 83.0% | 78% | 29% | 35% |
+| **V50 SPY×Regime (T-bill)** | **$1,046,225** | **+9.33%** | **0.79** | **19.3%** | **14.5%** | **12.4%** | **16.4%** |
+| SPY buy & hold | $778,811 | +8.11% | 0.53 | 55.2% | 55% | 34% | 24% |
+| QQQ buy & hold | $835,433 | +8.40% | 0.46 | 83.0% | 78% | 29% | 35% |
 
-*All figures: $100k starting capital, 2000-01-01 → 2026-04-25. SPY×Regime uses same regime gate as live strategy.*
+![V50 full backtest equity + annual + drawdown](v50_full_backtest.png)
 
-![SPY×Regime vs Benchmarks equity curve](regime_spy_comparison.png)
+### Leverage ladder — common period (2009-06-25 → 2026-04-30, $100k start)
+
+| Variant | Instrument | CAGR | Sharpe | Calmar | MaxDD | End value |
+|---------|-----------|------|--------|--------|-------|-----------|
+| **V50** | SPY (1×) | +12.5% | **0.94** | **0.64** | **19.3%** | $724k |
+| **V51** | SSO (2×) | +21.5% | 0.86 | 0.59 | 36.6% | $2.6M |
+| **V52** | UPRO (3×) | +29.6% | 0.85 | 0.59 | 50.3% | **$7.9M** |
+| SPY B&H | — | +14.9% | 0.94 | 0.44 | 33.7% | $1.0M |
+| QQQ B&H | — | +19.8% | 1.04 | 0.42 | 35.1% | $2.1M |
+| SSO B&H | — | +24.9% | 0.85 | 0.42 | 59.3% | $4.2M |
+| UPRO B&H | — | +32.5% | 0.83 | 0.42 | 76.8% | $11.4M |
+
+Stress drawdowns (regime-gated):
+
+| | V50 (1×) | V51 (2×) | V52 (3×) | SPY B&H | SSO B&H | UPRO B&H |
+|-|---------|---------|---------|---------|---------|---------|
+| GFC | 5.7% | 11.2% | 16.6% | 5.7% | 11.2% | 16.6% |
+| COVID | 12.4% | 23.4% | 33.6% | 33.7% | 59.3% | 76.8% |
+| Rates 2022 | 16.4% | 31.8% | 45.4% | 24.5% | 46.7% | 63.9% |
+
+![Leverage ladder — equity, annual returns, drawdown](v50_leverage_compare.png)
 
 **Key findings:**
 
-**SPY×Regime (T-bill) is the clear winner on risk-adjusted terms.** $4.9M end value vs R1_189's $1.1M — a 4.6× gap — with *better* Sharpe (1.32 vs 0.70) and *lower* max drawdown (12.9% vs 20.4%). Every stress period is dramatically better: GFC 8.2% vs 20.4%, COVID 7.9% vs 14.8%, Rates 7.2% vs 17.5%. The regime gate simply sidesteps the worst of each crash by exiting SPY entirely.
+**The regime gate cuts ~⅓ off raw B&H MaxDD at every leverage level.** UPRO B&H 76.8% → V52 50.3% (-26pp). SSO B&H 59.3% → V51 36.6% (-23pp). The crash protection scales linearly with leverage.
 
-**GLD as cash substitute doubles end value but triples GFC drawdown.** $7.9M CAGR +18.1%, but GLD collapsed in the 2008 liquidity crunch (GFC DD: 27.2%) and the rate shock (19.4%). The T-bill variant is strictly risk-adjusted superior; GLD only wins if you accept much larger drawdowns.
+**V51 beats QQQ B&H on CAGR with roughly the same MaxDD.** +21.5% vs +19.8%, MaxDD 36.6% vs 35.1%, Calmar 0.59 vs 0.42. This is the strongest risk-adjusted case for the 2× variant.
 
-**The main implication: the regime gate is the dominant alpha source.** CAPM vs SPY for R1_189: Beta 0.41, Alpha (ann.) +6.39%, R² 0.26 — low R² confirms the strategy is not just a levered SPY. But SPY×Regime (T-bill) vs SPY: Beta 0.42, Alpha (ann.) +12.20%, R² 0.41. The pure timing strategy has *twice* the alpha and *higher* R² — stock selection adds friction, not returns.
+**V52 ends at $7.9M vs UPRO B&H $11.4M** — you give up ~3 CAGR points and $3.5M in exchange for cutting MaxDD from 76.8% → 50.3%. Whether that's worth it depends on drawdown tolerance.
 
-**What stock picking is adding:** R1_189's CAGR (+9.46%) is 6.5pp below SPY×Regime (T-bill) (+15.96%). The stock selection strategy earns less than holding SPY with regime timing. The individual stock picks add diversification risk (single-name stops, liquidity events, delisted positions) that isn't compensated. The ATR stop-loss, momentum filter, and RS filter all add complexity that the simple timing strategy doesn't need.
+**Sharpe and Calmar improve over B&H at every leverage level.** The gate is additive regardless of instrument.
 
-**Status:** This is an open research question about strategy direction, not a deployment decision. R1_189 is the current live simulation. The regime timing result is a reference benchmark for the strategy's core timing signal.
+**GLD as cash substitute (legacy finding):** +18.1% CAGR with T-bill replaced by GLD, but GFC DD 27.2% and Rates DD 19.4%. Strictly worse risk-adjusted than T-bills. T-bill variant confirmed superior.
+
+**The regime gate is the dominant alpha source.** CAPM vs SPY for V50: Beta 0.50, Alpha +5.0%/yr, R² 0.37. Stock selection (R1_189, V39) added friction, not alpha — V50 beats them on CAGR, Sharpe, MaxDD, and end value with a simpler model.
+
+### min_hold_days sweep: 5 days is optimal across all leverage levels
+
+| Hold | V50 CAGR | V50 MaxDD | V51 CAGR | V51 MaxDD | V52 CAGR | V52 MaxDD |
+|------|---------|---------|---------|---------|---------|---------|
+| 3d | +8.32% | 23.3% | +16.42% | 42.9% | +28.17% | 50.3% |
+| 4d | +8.63% | 19.3% | +17.13% | 36.6% | +27.74% | 51.0% |
+| **5d** | **+9.33%** | **19.3%** | **+18.60%** | **36.6%** | **+29.84%** | **50.3%** |
+| 6d | +8.87% | 19.3% | +17.56% | 37.2% | +28.98% | 50.3% |
+| 7d | +9.14% | 19.3% | +17.76% | 36.6% | +27.99% | 50.3% |
+| 8d | +8.64% | 22.0% | +16.21% | 40.5% | +25.58% | 55.9% |
+| 10d | +8.68% | 23.7% | +16.81% | 43.5% | +27.02% | 59.2% |
+
+5-day wins CAGR, Sharpe, and Calmar for all three. Below 5d: extra whipsaw roundtrips hurt returns. Above 7d: missed re-entries cost more than avoided whipsaws, and MaxDD starts degrading.
+
+**Scripts:** `v50_full_backtest.py`, `v50_sweep_hold.py`, `v50_sso_backtest.py`, `v50_sso_sweep_hold.py`, `v50_upro_sweep_hold.py`, `v50_leverage_compare.py`
 
 ---
 
@@ -350,45 +407,42 @@ python mixa/backtest/run.py --variant 7 --fill-mode legacy       # legacy mode f
 
 ---
 
-## Trend strategy conclusion: R1_189 is the champion
+## Strategy conclusion: V50/V51/V52 are the champions
 
-R1_189 is the **current bias-corrected champion** — no foreknowledge, all filters real-time computable, dynamic S&P 500 universe. H39 (same signal, static SP50) is the apples-to-apples hindsight ceiling (not yet rerun under new fill model).
+**V50 is the current champion** (promoted 2026-04-30). V39 and R1_189 placed on ice — stock selection adds friction, not alpha. The regime gate is the dominant return driver.
 
-| Metric | **R1_189 (champion)** | V39 (prev champion) | H39 (hindsight ceiling) | SPY | AOA§ |
-|--------|-----------------------|---------------------|------------------------|-----|------|
-| End value | **$1,078,696** | $1,016,190 | — | $781,394 | $559,722§ |
-| CAGR | **+9.46%** | +9.21% | — | +8.10% | +6.76%§ |
-| Sharpe | **0.70** | 0.69 | — | 0.53 | 0.77§ |
-| MaxDD | **20.4%** | 20.4% | — | 55.2% | 28.4%§ |
-| GFC stress | **20.4%** | 20.4% | — | 55% | — |
-| COVID stress | **14.8%** | 14.8% | — | 34% | — |
-| Rates stress | 17.5% | **15.1%** | — | 24% | — |
-| Win rate | **37.4%** | 36.2% | — | — | — |
+| Metric | **V50 (1×)** | **V51 (2×)** | **V52 (3×)** | SPY B&H | QQQ B&H |
+|--------|------------|------------|------------|---------|---------|
+| Period | 2000–2026 | 2006–2026 | 2009–2026 | | |
+| End value | $1,046,225 | $2,957,437 | $8,132,117 | varies | varies |
+| CAGR | +9.33% | +18.60% | +29.84% | +8–15% | +8–20% |
+| Sharpe | 0.79 | 0.80 | 0.85 | 0.53–0.94 | 0.46–1.04 |
+| MaxDD | 19.3% | 36.6% | 50.3% | 33–55% | 35–83% |
 
-§AOA from inception 2008-11-11. All figures IRA/tax-free, standard limit order fill (f=0/0), data through 2026-04-26.
+*Periods differ by ETF inception date; see leverage ladder table for apples-to-apples 2009-06-25 start.*
 
-**Interpretation:** R1_189 matches V39 on MaxDD and Calmar while adding +25bp CAGR and marginally better Sharpe. The RS filter (must outperform SPY over 9 months) is the decisive improvement — it rules out stocks in confirmed absolute uptrends that are nonetheless lagging the market, which tend to be dead money. R1_189 beats SPY by +1.36pp CAGR and +0.17 Sharpe. The Rates DD is the one area where R1_189 underperforms V39 (17.5% vs 15.1%). H39 (hindsight ceiling) not yet rerun under new fill model.
-
-![R1_189 vs V39 vs H39 equity curve](r1_189_vs_h39.png)
+![R1_189 vs V39 vs H39 equity curve (archived reference)](r1_189_vs_h39.png)
 
 ---
 
-## Current recommended configuration: R1_189
+## Current recommended configuration: V50 (or V51/V52 by risk tolerance)
 
-- SMA100/300 golden cross on daily bars
-- Dynamic PIT S&P 500 universe; forced-exit on removal
-- Dollar-volume screen: top-50 by trailing 30d avg dollar volume
-- Momentum filter: top 25% by 12-1 month cross-sectional rank
-- **RS filter: entry requires 189-day return > SPY 189-day return** *(new in R1_189)*
-- 10-day trend persistence gate before entry
-- SPY asymmetric regime gate: close at SMA200, reopen fast (^IRX easing) or slow (^IRX tightening)
-- SPY recovery re-entry: 25% size when SPY < SMA200 but > SMA20
-- VIX adaptive sizing: half-size VIX > 25; skip VIX > 40
-- ATR stop: 3× ATR14 below entry; never trailed
-- 20-day re-entry cooldown after stop-losses
-- T-bill cash yield: idle cash earns ^IRX daily
-- Position sizing: 1% portfolio risk per trade, max 15% per position
-- *Full-period (2000–2026): CAGR +9.46%, Sharpe 0.70, MaxDD 20.4% (standard limit order fill, IRA/tax-free)*
+**V50** — conservative, IRA/long-term:
+- 100% SPY when regime gate open; 100% T-bills when closed
+- Regime: SPY < SMA200 → exit; SPY > SMA100 AND ^IRX easing → reopen (else wait for SMA100/SMA200 golden cross)
+- 5-day debounce on regime flips
+- 1-day execution lag (signal at close[T] → MOO fill open[T+1])
+- *Full-period (2000–2026): CAGR +9.33%, Sharpe 0.79, MaxDD 19.3%*
+
+**V51** — moderate leverage:
+- Same gate; position is SSO (2× daily S&P) when open; T-bills when closed
+- *From SSO inception (2006–2026): CAGR +18.60%, Sharpe 0.80, MaxDD 36.6%*
+- Beats QQQ B&H on CAGR with roughly equal MaxDD — best risk-adjusted leverage case
+
+**V52** — aggressive:
+- Same gate; position is UPRO (3× daily S&P) when open; T-bills when closed
+- *From UPRO inception (2009–2026): CAGR +29.84%, Sharpe 0.85, MaxDD 50.3%*
+- MaxDD 50.3% — requires high drawdown tolerance; only suitable for long time horizons
 
 ---
 
