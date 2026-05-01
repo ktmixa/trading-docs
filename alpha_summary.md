@@ -6,29 +6,49 @@
 
 ---
 
-## Project Update — 2026-04-30 (V53b promotion)
+## Project Update — 2026-05-01 (backtest model corrections; V51 champion)
 
-### New champion: V53b UPRO/SPY×Regime (VIX<17) replaces V50
+### Backtest corrections: swap-lag + MOO fill model
 
-**V53b** is now the champion. It uses the same SPY regime gate as V50 (SMA200 close, SMA100+IRX reopen, 5-day debounce, T-bills when closed) but adds a second layer: when the regime is open, VIX < 17 → UPRO (3×), VIX ≥ 17 → SPY (1×). Asymmetric VIX debounce: downshift in 1 day (fast exit on volatility spike), upshift only after 5 calm days.
+Two bugs in the prior backtest have been fixed. Numbers below supersede all prior V53b figures.
 
-**Key results vs V50 (2009-06-25 → 2026-04-30):**
+**Fix 1 — Swap-lag (2026-05-01):** The live runner queues sell-only on ETF↔ETF swap days (UPRO↔SPY) and defers the buy to the next EOD cycle. This adds 2 T-bill days per swap. V53b generates 122 such swaps over the backtest (2009–2026), consuming 244 extra cash days (5.76% of days). This cost was absent from the backtest. Impact on V53b: −2.89pp CAGR.
 
-| Metric | V53b (champion) | V50 | SPY B&H | QQQ B&H |
-|--------|----------------|-----|---------|---------|
-| CAGR | **+17.1%** | +12.5% | +14.9% | +19.8% |
-| Sharpe | 0.85 | **0.94** | 0.94 | 1.04 |
-| MaxDD | **29.2%** | 19.3% | 33.7% | 35.1% |
-| Calmar | 0.58 | 0.64 | 0.44 | 0.57 |
-| COVID DD | 16.2% | 12.4% | 33.7% | 28.9% |
-| Rates DD | 16.4% | 16.4% | 24.5% | 35.2% |
-| End $100k | $1,418k | $724k | $1,043k | $2,106k |
+**Fix 2 — MOO fill model (2026-05-01):** Signal fires at close[T] → fill at open[T+1]. The prior shift-1 close-to-close approximation over-earned on entry days (captured overnight gap the strategy can't access) and under-earned on exit days. Correct model: entry days earn intraday only (open[T+1]→close[T+1]); last hold days before exit earn overnight only (close[T]→open[T+1]). Impact scales with leverage: −0.33pp (V50), −0.69pp (V51), −1.02pp (V52), −0.58pp (V53b).
 
-V53b beats SPY B&H on CAGR (+2.1pp) with materially lower MaxDD (29.2% vs 33.7%). It gives up 2.8pp to QQQ but also cuts MaxDD by 6pp and has far better COVID/rates protection. CAPM vs SPY: Beta 0.70, Alpha +7.5%/yr. V50 retains better Sharpe and Calmar for investors who want minimal drawdown.
+### Current champion: V51 SSO×Regime (2×)
 
-**How V53b works:** 38% time UPRO, 46% time SPY, 15% time T-bills. Regime gate prevents holding 3× leverage in bear markets. VIX filter prevents holding 3× leverage in volatile sideways regimes (2018, 2022). Asymmetric debounce means one day of VIX≥17 triggers a UPRO→SPY shift, but 5 consecutive calm days are required before returning to UPRO.
+V51 is simpler and better than V53b after the corrections. It holds SSO (2× S&P500) when regime open, T-bills when closed. No VIX filter, no ETF swaps, no execution complexity.
 
-**VIX sweep (15–25) finding:** VIX<17 has the best MaxDD (29.2%) and Calmar (0.59). Higher thresholds (VIX<23-25) boost CAGR to 21-22% but MaxDD jumps to 47%+. VIX<15 has the best Sharpe (0.89) but lower CAGR. VIX<17 is the sweet spot balancing CAGR, MaxDD, and crisis protection.
+**Corrected results (2009-06-25 → 2026-05-01, $100k start, MOO fill):**
+
+| Variant | CAGR | Sharpe | Calmar | MaxDD | COVID DD | Rates DD | End $100k |
+|---------|------|--------|--------|-------|----------|----------|-----------|
+| **V51 SSO×Regime (2×)** | **+20.89%** | **0.84** | **0.57** | **36.6%** | 23.4% | 31.8% | **$2.4M** |
+| V50 SPY×Regime (1×) | +12.14% | **0.92** | **0.63** | **19.3%** | **12.4%** | **16.4%** | $689k |
+| V52 UPRO×Regime (3×) | +28.81% | 0.83 | 0.57 | 50.3% | 33.6% | 45.4% | $7.1M |
+| V53b UPRO/SPY×Regime | +13.58% | 0.74 | 0.44 | 30.6% | 12.2% | 16.4% | $855k |
+| SPY B&H | +14.93% | 0.94 | 0.44 | 33.7% | 33.7% | 24.5% | $1.0M |
+
+V51 is the clear winner on absolute CAGR (+20.89%) among strategies with manageable drawdown. V50 remains the conservative option (best Sharpe, lowest MaxDD). V53b underperforms V51 on CAGR by 7pp for similar MaxDD, and carries 122 UPRO↔SPY swap events that add execution complexity with no compensating return benefit.
+
+**V53b re-evaluation:** After the swap-lag correction, V53b's VIX layer adds no value over V51: V53b CAGR 13.58% vs V51 20.89%, similar MaxDD (30.6% vs 36.6%). The `min_hold_down=1` setting fires a swap on every 1-day VIX spike, generating 122 swaps that cost 5.76% of days in T-bills, disproportionately during brief volatility recoveries. V53b is demoted; V51 is the champion.
+
+---
+
+## Project Update — 2026-04-30 (V53b promotion — superseded)
+
+> **Note:** Numbers in this section used the pre-correction backtest (no swap-lag, shift-1 fill model). See above for corrected figures.
+
+### (Archived) V53b pre-correction metrics
+
+| Metric | V53b (pre-correction) | V50 | SPY B&H |
+|--------|----------------------|-----|---------|
+| CAGR | +17.1% | +12.5% | +14.9% |
+| MaxDD | 29.2% | 19.3% | 33.7% |
+| End $100k | $1,418k | $724k | $1,043k |
+
+**How V53b works:** 38% time UPRO, 46% time SPY, 15% time T-bills. Same SPY regime gate as V50 (SMA200 close, SMA100+IRX reopen, 5-day debounce). VIX<17 → UPRO, VIX≥17 → SPY when regime open. Asymmetric VIX debounce: downshift 1 day, upshift after 5 consecutive calm days.
 
 ---
 
