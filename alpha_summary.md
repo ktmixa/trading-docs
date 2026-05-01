@@ -260,6 +260,8 @@ Stress drawdowns (regime-gated vs B&H):
 | COVID | 12.4% | **16.2%** | 17.3% | 23.4% | 33.6% | 33.7% |
 | Rates 2022 | 16.4% | **16.4%** | 28.0% | 31.8% | 45.4% | 24.5% |
 
+![V50 / V51 / V52 / V53b — equity, annual returns, drawdown](v53b_compare.png)
+
 ![V53b vs V50 vs SPY vs QQQ](regime_spy_comparison.png)
 
 ![Leverage ladder — equity, annual returns, drawdown](v50_leverage_compare.png)
