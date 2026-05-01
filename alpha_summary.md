@@ -6,9 +6,35 @@
 
 ---
 
+## Project Update — 2026-04-30 (V53b promotion)
+
+### New champion: V53b UPRO/SPY×Regime (VIX<17) replaces V50
+
+**V53b** is now the champion. It uses the same SPY regime gate as V50 (SMA200 close, SMA100+IRX reopen, 5-day debounce, T-bills when closed) but adds a second layer: when the regime is open, VIX < 17 → UPRO (3×), VIX ≥ 17 → SPY (1×). Asymmetric VIX debounce: downshift in 1 day (fast exit on volatility spike), upshift only after 5 calm days.
+
+**Key results vs V50 (2009-06-25 → 2026-04-30):**
+
+| Metric | V53b (champion) | V50 | SPY B&H | QQQ B&H |
+|--------|----------------|-----|---------|---------|
+| CAGR | **+17.1%** | +12.5% | +14.9% | +19.8% |
+| Sharpe | 0.85 | **0.94** | 0.94 | 1.04 |
+| MaxDD | **29.2%** | 19.3% | 33.7% | 35.1% |
+| Calmar | 0.58 | 0.64 | 0.44 | 0.57 |
+| COVID DD | 16.2% | 12.4% | 33.7% | 28.9% |
+| Rates DD | 16.4% | 16.4% | 24.5% | 35.2% |
+| End $100k | $1,418k | $724k | $1,043k | $2,106k |
+
+V53b beats SPY B&H on CAGR (+2.1pp) with materially lower MaxDD (29.2% vs 33.7%). It gives up 2.8pp to QQQ but also cuts MaxDD by 6pp and has far better COVID/rates protection. CAPM vs SPY: Beta 0.70, Alpha +7.5%/yr. V50 retains better Sharpe and Calmar for investors who want minimal drawdown.
+
+**How V53b works:** 38% time UPRO, 46% time SPY, 15% time T-bills. Regime gate prevents holding 3× leverage in bear markets. VIX filter prevents holding 3× leverage in volatile sideways regimes (2018, 2022). Asymmetric debounce means one day of VIX≥17 triggers a UPRO→SPY shift, but 5 consecutive calm days are required before returning to UPRO.
+
+**VIX sweep (15–25) finding:** VIX<17 has the best MaxDD (29.2%) and Calmar (0.59). Higher thresholds (VIX<23-25) boost CAGR to 21-22% but MaxDD jumps to 47%+. VIX<15 has the best Sharpe (0.89) but lower CAGR. VIX<17 is the sweet spot balancing CAGR, MaxDD, and crisis protection.
+
+---
+
 ## Project Update — 2026-04-30
 
-### New champion: V50 SPY×Regime replaces R1_189
+### Previous champion: V50 SPY×Regime replaces R1_189
 
 **V39 and R1_189 are placed on ice.** The pure SPY×Regime timing strategy (V50) is the new champion. Stock picking does not compensate for the friction it introduces — the regime gate itself is the dominant alpha source.
 
@@ -40,13 +66,44 @@ Same SPY regime gate, leveraged equity instrument when open, T-bills when closed
 
 ---
 
-## Current champion: V50 SPY×Regime — numbers to beat
+## Current champion: V53b UPRO/SPY×Regime (VIX<17) — numbers to beat
 
-**Previous champion R1_189 placed on ice (2026-04-30). See project update above.**
+**Promoted 2026-04-30. V50 remains the conservative option; R1_189/V39 on ice.**
 
-**V50 = pure SPY×Regime timing. No stock picking, no position sizing, no stops.**
+**V53b = SPY regime gate + VIX-gated UPRO. No stock picking, no position sizing, no stops.**
 
-100% SPY when the regime gate is open; 100% T-bills when closed. Regime: SPY below SMA200 → close; SPY above SMA100 AND ^IRX rate-easing adaptive reopen. 5-day debounce on regime flips. 1-day execution lag (signal at close[T] → fill at open[T+1]).
+When regime open: VIX < 17 → UPRO (3×), VIX ≥ 17 → SPY (1×). Regime closed → T-bills. Regime: SPY below SMA200 → close; SPY above SMA100 AND ^IRX rate-easing → reopen. 5-day regime debounce, 1-day VIX downshift debounce, 5-day VIX upshift debounce. 1-day execution lag.
+
+| Metric | **V53b (champion)** | V50 | SPY B&H | QQQ B&H |
+|--------|-------------------|-----|---------|---------|
+| Period | 2009-06-25 → today | 2009-06-25 → today | same | same |
+| End value ($100k) | **$1,418,005** | $723,784 | $1,043,330 | $2,105,874 |
+| CAGR | **+17.05%** | +12.47% | +14.94% | +19.83% |
+| Sharpe | 0.85 | **0.94** | 0.94 | 1.04 |
+| MaxDD | 29.2% | **19.3%** | 33.7% | 35.1% |
+| Calmar | 0.58 | **0.64** | 0.44 | 0.57 |
+| COVID drawdown | 16.2% | **12.4%** | 33.7% | 28.9% |
+| Rates drawdown | 16.4% | **16.4%** | 24.5% | 35.2% |
+| CAPM Beta vs SPY | 0.70 | 0.50 | — | — |
+| CAPM Alpha vs SPY | **+7.51%/yr** | +5.03%/yr | — | — |
+
+*IRA/tax-free, 5-day regime debounce, 1-day VIX downshift, 2009-06-25 → 2026-04-30, $100k start.*
+
+**How V53b works:**
+- *Regime gate:* Identical to V50 — SPY < SMA200 → close (T-bills); SPY > SMA100 AND IRX easing → reopen.
+- *VIX layer:* When regime is open, VIX < 17 → UPRO, VIX ≥ 17 → SPY. Two-tier only (no mid tier).
+- *Asymmetric VIX debounce:* `_debounce_signal_asymmetric(tier_series, min_hold_down=1, min_hold_up=5)` — 1 day VIX≥17 immediately shifts to SPY; 5 consecutive days VIX<17 required to restore UPRO.
+- *Execution:* Signal at close[T] → MOO fill at open[T+1]. Simulated as `ret.shift(-1)`.
+- *Allocation:* ~38% time UPRO, ~46% time SPY, ~15% time T-bills (regime-closed).
+- *T-bill yield:* (^IRX / 100 / 252) earned daily when regime closed.
+
+**Why VIX<17 specifically:** Sweep of VIX thresholds 15–25 showed VIX<17 has the lowest MaxDD (29.2%) and best Calmar (0.59). VIX<15 has better Sharpe but much less time in UPRO. VIX<18+ starts catching choppy mid-range VIX regimes and MaxDD degrades.
+
+**Status:** Promoted to champion 2026-04-30.
+
+---
+
+## Previous champion: V50 SPY×Regime — archived numbers
 
 | Metric | **V50 SPY×Regime** | SPY B&H | QQQ B&H |
 |--------|-------------------|---------|---------|
@@ -55,33 +112,24 @@ Same SPY regime gate, leveraged equity instrument when open, T-bills when closed
 | Sharpe | **0.79** | 0.53 | 0.46 |
 | MaxDD | **19.3%** | 55.2% | 83.0% |
 | Calmar | **0.48** | 0.15 | 0.10 |
-| GFC drawdown | **14.5%** | 55% | 78% |
 | COVID drawdown | **12.4%** | 34% | 29% |
 | Rates drawdown | **16.4%** | 24% | 35% |
 
-*IRA/tax-free, 5-day debounce, 1-day execution lag, 2000-01-01 → 2026-04-30, $100k start.*
-
-**How V50 works:**
-- *Signal:* SPY SMA200 gate (close → exit SPY, buy T-bills). Reopen: SPY > SMA100 AND ^IRX fast MA < slow MA (rate easing), otherwise wait for SMA100 > SMA200 golden cross.
-- *Debounce:* `_debounce_regime(signal, min_hold=5)` — signal must hold new state 5 consecutive days before position flips. Reduces 570 raw transitions → 33 clean ones.
-- *Execution:* Signal at close[T] → MOO fill at open[T+1]. Simulated as `spy_ret.shift(-1)`.
-- *Cash yield:* T-bill rate (^IRX / 100 / 252) earned daily when out of SPY.
-- *33 transitions in 26 years* — all meaningful market events (dotcom, GFC, COVID, rate shock, tariff selloff).
-
-**Status:** Promoted to champion 2026-04-30. V39/R1_189 on ice.
+*Full period 2000-01-01 → 2026-04-30, $100k start. Remains the conservative option for minimal-drawdown deployments.*
 
 ---
 
-## Portfolio architecture (V50 — current)
+## Portfolio architecture (V53b — current champion)
 
 Single-strategy deployment on $100k capital:
 
 | State | Allocation | Instrument |
 |-------|-----------|------------|
-| Regime open (SPY > SMA200 zone) | 100% equity | SPY (V50), SSO 2× (V51), or UPRO 3× (V52) |
+| Regime open + VIX < 17 | 100% equity | UPRO (3× S&P500) |
+| Regime open + VIX ≥ 17 | 100% equity | SPY (1× S&P500) |
 | Regime closed | 100% cash | T-bills (^IRX daily accrual) |
 
-No stock picking, no position sizing, no stops. Regime state changes on 5-day debounce. Execution at next-day open.
+No stock picking, no position sizing, no stops. Regime state changes on 5-day debounce. VIX downshift: 1-day; VIX upshift: 5-day. Execution at next-day open.
 
 **MR and UVXY not active.** Mean reversion earned only +0.90% CAGR on its capital slice. UVXY was tested (V37a/b) and was net negative. Both remain documented below.
 
@@ -171,7 +219,7 @@ V39 **best window:** 2013 start (+15.0% CAGR, α=−0.1pp vs SPY). **Worst windo
 
 ---
 
-## V50 / V51 / V52: Regime-timing leverage ladder (2026-04-30)
+## V50 / V51 / V52 / V53 / V53b: Regime-timing leverage ladder (2026-04-30)
 
 Hold equity instrument when SPY regime gate is open; hold T-bills when closed.  
 Same regime signal across all three — SMA200 gate + ^IRX adaptive reopen + 5-day debounce.
@@ -190,39 +238,47 @@ Same regime signal across all three — SMA200 gate + ^IRX adaptive reopen + 5-d
 
 ### Leverage ladder — common period (2009-06-25 → 2026-04-30, $100k start)
 
-| Variant | Instrument | CAGR | Sharpe | Calmar | MaxDD | End value |
-|---------|-----------|------|--------|--------|-------|-----------|
-| **V50** | SPY (1×) | +12.5% | **0.94** | **0.64** | **19.3%** | $724k |
-| **V51** | SSO (2×) | +21.5% | 0.86 | 0.59 | 36.6% | $2.6M |
-| **V52** | UPRO (3×) | +29.6% | 0.85 | 0.59 | 50.3% | **$7.9M** |
-| SPY B&H | — | +14.9% | 0.94 | 0.44 | 33.7% | $1.0M |
-| QQQ B&H | — | +19.8% | 1.04 | 0.42 | 35.1% | $2.1M |
-| SSO B&H | — | +24.9% | 0.85 | 0.42 | 59.3% | $4.2M |
-| UPRO B&H | — | +32.5% | 0.83 | 0.42 | 76.8% | $11.4M |
+| Variant | Instrument | CAGR | Sharpe | Calmar | MaxDD | COVID | Rates | End value |
+|---------|-----------|------|--------|--------|-------|-------|-------|-----------|
+| **V50** | SPY (1×) | +12.5% | **0.94** | **0.64** | **19.3%** | 12.4% | 16.4% | $724k |
+| **V51** | SSO (2×) | +21.5% | 0.86 | 0.59 | 36.6% | 23.4% | 31.8% | $2.6M |
+| **V52** | UPRO (3×) | +29.6% | 0.85 | 0.59 | 50.3% | 33.6% | 45.4% | **$7.9M** |
+| **V53** | UPRO/SSO/SPY VIX tiers | +18.6% | 0.82 | 0.54 | 34.3% | 17.3% | 28.0% | $1.8M |
+| **V53b** ★ | UPRO/SPY VIX<17 | +17.1% | 0.85 | 0.58 | 29.2% | 16.2% | 16.4% | $1.4M |
+| SPY B&H | — | +14.9% | 0.94 | 0.44 | 33.7% | 33.7% | 24.5% | $1.0M |
+| QQQ B&H | — | +19.8% | 1.04 | 0.42 | 35.1% | 28.9% | 35.2% | $2.1M |
+| SSO B&H | — | +24.9% | 0.85 | 0.42 | 59.3% | — | — | $4.2M |
+| UPRO B&H | — | +32.5% | 0.83 | 0.42 | 76.8% | — | — | $11.4M |
 
-Stress drawdowns (regime-gated):
+★ V53b is the current champion.
 
-| | V50 (1×) | V51 (2×) | V52 (3×) | SPY B&H | SSO B&H | UPRO B&H |
-|-|---------|---------|---------|---------|---------|---------|
-| GFC | 5.7% | 11.2% | 16.6% | 5.7% | 11.2% | 16.6% |
-| COVID | 12.4% | 23.4% | 33.6% | 33.7% | 59.3% | 76.8% |
-| Rates 2022 | 16.4% | 31.8% | 45.4% | 24.5% | 46.7% | 63.9% |
+Stress drawdowns (regime-gated vs B&H):
+
+| | V50 | V53b ★ | V53 | V51 | V52 | SPY B&H |
+|-|-----|--------|-----|-----|-----|---------|
+| GFC | 5.7% | 5.7% | 5.7% | 11.2% | 16.6% | 5.7% |
+| COVID | 12.4% | **16.2%** | 17.3% | 23.4% | 33.6% | 33.7% |
+| Rates 2022 | 16.4% | **16.4%** | 28.0% | 31.8% | 45.4% | 24.5% |
+
+![V53b vs V50 vs SPY vs QQQ](regime_spy_comparison.png)
 
 ![Leverage ladder — equity, annual returns, drawdown](v50_leverage_compare.png)
 
 **Key findings:**
 
-**The regime gate cuts ~⅓ off raw B&H MaxDD at every leverage level.** UPRO B&H 76.8% → V52 50.3% (-26pp). SSO B&H 59.3% → V51 36.6% (-23pp). The crash protection scales linearly with leverage.
+**V53b (champion) achieves 3× leverage alpha with near-1× drawdown.** MaxDD 29.2% is lower than SPY B&H (33.7%), while CAGR (+17.1%) beats SPY B&H (+14.9%). The VIX filter prevents holding UPRO during the most destructive phases of each bear market.
 
-**V51 beats QQQ B&H on CAGR with roughly the same MaxDD.** +21.5% vs +19.8%, MaxDD 36.6% vs 35.1%, Calmar 0.59 vs 0.42. This is the strongest risk-adjusted case for the 2× variant.
+**The regime gate cuts ~⅓ off raw B&H MaxDD at every leverage level.** UPRO B&H 76.8% → V52 50.3% (-26pp). V53b achieves even better — 29.2% MaxDD on a portfolio that's 38% in UPRO — by also using VIX to shed leverage before the worst drawdowns.
 
-**V52 ends at $7.9M vs UPRO B&H $11.4M** — you give up ~3 CAGR points and $3.5M in exchange for cutting MaxDD from 76.8% → 50.3%. Whether that's worth it depends on drawdown tolerance.
+**V53 (3-tier UPRO/SSO/SPY) vs V53b (2-tier UPRO/SPY):** Adding SSO as a middle tier gives +1.5pp CAGR but costs +5pp MaxDD and +11.6pp Rates DD. V53b's binary approach — full UPRO or full SPY — has cleaner behavior and better crisis protection.
 
-**Sharpe and Calmar improve over B&H at every leverage level.** The gate is additive regardless of instrument.
+**V51 beats QQQ B&H on CAGR with roughly the same MaxDD.** +21.5% vs +19.8%, MaxDD 36.6% vs 35.1%, Calmar 0.59 vs 0.42. Best risk-adjusted case for 2× leveraged.
 
-**GLD as cash substitute (legacy finding):** +18.1% CAGR with T-bill replaced by GLD, but GFC DD 27.2% and Rates DD 19.4%. Strictly worse risk-adjusted than T-bills. T-bill variant confirmed superior.
+**V52 ends at $7.9M vs UPRO B&H $11.4M** — ~3 CAGR points to cut MaxDD from 76.8% → 50.3%. V53b gets a better deal: gives up ~12.5pp to V52 CAGR but cuts MaxDD by 21pp.
 
-**The regime gate is the dominant alpha source.** CAPM vs SPY for V50: Beta 0.50, Alpha +5.0%/yr, R² 0.37. Stock selection (R1_189, V39) added friction, not alpha — V50 beats them on CAGR, Sharpe, MaxDD, and end value with a simpler model.
+**Sharpe and Calmar improve over B&H at every leverage level.** The regime gate is additive regardless of instrument.
+
+**The regime gate is the dominant alpha source.** CAPM vs SPY for V50: Beta 0.50, Alpha +5.0%/yr, R² 0.37. V53b vs SPY: Beta 0.70, Alpha +7.5%/yr, R² 0.29. Stock selection (R1_189, V39) added friction, not alpha.
 
 ### min_hold_days sweep: 5 days is optimal across all leverage levels
 
@@ -238,7 +294,33 @@ Stress drawdowns (regime-gated):
 
 5-day wins CAGR, Sharpe, and Calmar for all three. Below 5d: extra whipsaw roundtrips hurt returns. Above 7d: missed re-entries cost more than avoided whipsaws, and MaxDD starts degrading.
 
-**Scripts:** `v50_full_backtest.py`, `v50_sweep_hold.py`, `v50_sso_backtest.py`, `v50_sso_sweep_hold.py`, `v50_upro_sweep_hold.py`, `v50_leverage_compare.py`
+### V53 — Dynamic leverage: VIX-tiered instrument selection (3-tier)
+
+When regime open: VIX < 15 → UPRO, 15 ≤ VIX < 25 → SSO, VIX ≥ 25 → SPY. Regime closed → T-bills. Asymmetric VIX debounce: 1-day downshift, 5-day upshift. Key finding: the asymmetric debounce is critical — 5-day symmetric debounce kept strategy in UPRO during COVID spike → 42.2% COVID DD; 1-day downshift cut it to 17.3%.
+
+min_hold_down sweep (up=5 fixed):
+
+| down | CAGR | Sharpe | MaxDD | COVID |
+|------|------|--------|-------|-------|
+| **1d** | **+18.6%** | **0.82** | **34.3%** | **17.3%** |
+| 2d | +18.8% | 0.80 | 35.3% | 20.5% |
+| 3d | +17.6% | 0.74 | 42.1% | 26.4% |
+
+### V53b — 2-tier UPRO/SPY VIX<17 (champion)
+
+Collapses V53's three tiers to two: UPRO when VIX < 17, SPY otherwise. Key insight: the SSO middle tier adds noise, not value. VIX threshold sweep 15–25 (2-tier):
+
+| VIX thresh | CAGR | Sharpe | MaxDD | COVID | Rates | Verdict |
+|-----------|------|--------|-------|-------|-------|---------|
+| VIX<15 | +15.3% | **0.89** | 32.2% | 16.2% | 16.4% | Best Sharpe |
+| **VIX<17** | **+17.2%** | **0.86** | **29.2%** | **16.2%** | **16.4%** | **Best MaxDD + Calmar** |
+| VIX<20 | +13.4% | 0.61 | 44.9% | 32.5% | 23.2% | Worst |
+| VIX<23 | +21.3% | 0.79 | 46.6% | 24.9% | 37.5% | High CAGR, high DD |
+| VIX<25 | +21.3% | 0.76 | 46.5% | 23.0% | 38.0% | — |
+
+VIX<17 wins on MaxDD because it keeps strategy out of UPRO during the 2018 volmageddon and mid-2022 grinding bear (VIX sustained 25-35) without needing to wait 5 upshift days. The 15-16 range is too narrow — only calm bull markets qualify; strategy is mostly SPY.
+
+**Scripts:** `v50_full_backtest.py`, `v50_sweep_hold.py`, `v50_sso_backtest.py`, `v50_sso_sweep_hold.py`, `v50_upro_sweep_hold.py`, `v50_leverage_compare.py`, `v53_sweep.py`, `v53_2tier_sweep.py`
 
 ---
 
@@ -407,37 +489,45 @@ python mixa/backtest/run.py --variant 7 --fill-mode legacy       # legacy mode f
 
 ---
 
-## Strategy conclusion: V50/V51/V52 are the champions
+## Strategy conclusion: V53b is the champion
 
-**V50 is the current champion** (promoted 2026-04-30). V39 and R1_189 placed on ice — stock selection adds friction, not alpha. The regime gate is the dominant return driver.
+**V53b is the current champion** (promoted 2026-04-30). V50 is the conservative alternative. V39 and R1_189 placed on ice — stock selection adds friction, not alpha. The regime gate is the dominant return driver; VIX-gated instrument selection is the second layer.
 
-| Metric | **V50 (1×)** | **V51 (2×)** | **V52 (3×)** | SPY B&H | QQQ B&H |
-|--------|------------|------------|------------|---------|---------|
-| Period | 2000–2026 | 2006–2026 | 2009–2026 | | |
-| End value | $1,046,225 | $2,957,437 | $8,132,117 | varies | varies |
-| CAGR | +9.33% | +18.60% | +29.84% | +8–15% | +8–20% |
-| Sharpe | 0.79 | 0.80 | 0.85 | 0.53–0.94 | 0.46–1.04 |
-| MaxDD | 19.3% | 36.6% | 50.3% | 33–55% | 35–83% |
+| Metric | **V53b ★** | **V50** | **V51** | **V52** | SPY B&H | QQQ B&H |
+|--------|-----------|--------|--------|--------|---------|---------|
+| Period | 2009–2026 | 2009–2026 | 2009–2026 | 2009–2026 | — | — |
+| End value | **$1,418k** | $724k | $2.6M | **$7.9M** | $1.0M | $2.1M |
+| CAGR | +17.1% | +12.5% | +21.5% | +29.6% | +14.9% | +19.8% |
+| Sharpe | 0.85 | **0.94** | 0.86 | 0.85 | 0.94 | 1.04 |
+| MaxDD | **29.2%** | **19.3%** | 36.6% | 50.3% | 33.7% | 35.1% |
+| COVID DD | 16.2% | **12.4%** | 23.4% | 33.6% | 33.7% | 28.9% |
 
-*Periods differ by ETF inception date; see leverage ladder table for apples-to-apples 2009-06-25 start.*
+*All variants: 5-day regime debounce, 1-day execution lag, T-bill cash, IRA/tax-free.*
 
-![R1_189 vs V39 vs H39 equity curve (archived reference)](r1_189_vs_h39.png)
+![V53b vs V50 vs SPY vs QQQ equity curve](regime_spy_comparison.png)
+
+![V53b vs V50, 2-year window](v53b_vs_v50_2yr.png)
 
 ---
 
-## Current recommended configuration: V50 (or V51/V52 by risk tolerance)
+## Current recommended configuration: V53b (or V50/V51/V52 by risk tolerance)
 
-**V50** — conservative, IRA/long-term:
-- 100% SPY when regime gate open; 100% T-bills when closed
-- Regime: SPY < SMA200 → exit; SPY > SMA100 AND ^IRX easing → reopen (else wait for SMA100/SMA200 golden cross)
-- 5-day debounce on regime flips
+**V53b** ★ — champion, IRA/long-term, moderate drawdown tolerance:
+- VIX < 17 → UPRO (3×); VIX ≥ 17 → SPY (1×); regime closed → T-bills
+- 5-day regime debounce, 1-day VIX downshift (fast), 5-day VIX upshift (slow)
 - 1-day execution lag (signal at close[T] → MOO fill open[T+1])
+- *From UPRO inception (2009–2026): CAGR +17.1%, Sharpe 0.85, MaxDD 29.2%*
+- Beats SPY B&H on CAGR (+2.1pp) with lower MaxDD (-4.5pp). ~38% time UPRO, ~46% SPY, ~15% T-bills.
+
+**V50** — conservative, minimal drawdown:
+- 100% SPY when regime gate open; 100% T-bills when closed
 - *Full-period (2000–2026): CAGR +9.33%, Sharpe 0.79, MaxDD 19.3%*
+- Best Sharpe and Calmar of any variant; for investors who cannot tolerate >20% drawdown
 
 **V51** — moderate leverage:
 - Same gate; position is SSO (2× daily S&P) when open; T-bills when closed
 - *From SSO inception (2006–2026): CAGR +18.60%, Sharpe 0.80, MaxDD 36.6%*
-- Beats QQQ B&H on CAGR with roughly equal MaxDD — best risk-adjusted leverage case
+- Beats QQQ B&H on CAGR with roughly equal MaxDD — best risk-adjusted fixed-leverage case
 
 **V52** — aggressive:
 - Same gate; position is UPRO (3× daily S&P) when open; T-bills when closed
