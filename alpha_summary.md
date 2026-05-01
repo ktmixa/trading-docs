@@ -103,6 +103,43 @@ When regime open: VIX < 17 → UPRO (3×), VIX ≥ 17 → SPY (1×). Regime clos
 
 ---
 
+## V54 Rate Risk-Off Overlay — Closed Research (2026-04-30)
+
+**Conclusion: All rate overlays rejected. V53b stands as-is.**
+
+V54 tested whether adding a rate-tightening or yield-curve-inversion signal on top of V53b could reduce drawdown during the 2022 rates shock without hurting CAGR. Five modes were swept; all degraded the strategy.
+
+### Signal definitions
+- **IRX tightening:** 20-day fast MA crosses above 60-day slow MA (^IRX, 3-month T-bill rate) — streak-based, resets to zero on any False day. ≥10 days → reduce UPRO→SPY (1×). ≥30 days → cash.
+- **Yield curve inversion:** T10Y2Y (10Y − 2Y spread, FRED) below zero for ≥63 consecutive days → cash.
+- **Modes tested:** baseline (V53b), tighten_10d→1x, tighten_30d→cash, yc_invert→cash, combined (tighten_30d + yc_invert).
+
+### Results (2009-06-25 → 2026-04-30, $100k start)
+
+| Variant | CAGR | Sharpe | Calmar | MaxDD | Rates DD | End $100k |
+|---------|------|--------|--------|-------|----------|-----------|
+| **V53b baseline** | **+17.05%** | **0.85** | **0.58** | **29.2%** | **16.4%** | **$1,418k** |
+| tighten_10d→1x | +13.66% | 0.79 | 0.58 | 23.4% | 16.4% | $865k |
+| tighten_30d→cash | +12.07% | 0.74 | 0.44 | 27.4% | 2.3% | $682k |
+| yc_invert→cash | +12.53% | 0.70 | 0.43 | 29.2% | 16.4% | $731k |
+| combined | +7.42% | 0.53 | 0.31 | 23.8% | 2.3% | $334k |
+| SPY B&H | +14.93% | 0.94 | 0.44 | 33.7% | 24.5% | $1,043k |
+
+### Why each mode failed
+
+**IRX tighten_10d→1x:** The 20d/60d MA crossover fires constantly during near-zero-rate environments (2010–2021) — 32 override events, 1608 days stuck in 1×SPY instead of UPRO. 3pp CAGR lost, no improvement in Rates DD (V53b's VIX≥17 already handled 2022 correctly because VIX stayed elevated all year).
+
+**IRX tighten_30d→cash:** Rates DD improves to 2.3% but CAGR drops 5pp and CAGR during the rates period collapses to +2.3% vs V53b's +16.4%. The cash override held 22 events, 1112 days — mostly during 2016–2019 and 2021–2023 bull runs. Gave up enormous upside to dodge a drawdown V53b already handles via VIX.
+
+**YC invert→cash:** T10Y2Y crossed −0% for 63+ consecutive days starting 2022-08-02, triggering cash mode. But the 63-day threshold wasn't reached until ~October 2022 — near the exact market bottom. The strategy then sat in cash through all of 2023–2024 bull run. CAGR −4.5pp, no improvement in Rates DD (16.4% — same as baseline, because the override fired after the damage was already done).
+
+**Combined:** All the harm compounds. −9.6pp CAGR, $334k vs $1.4M.
+
+### Root cause
+V53b's VIX layer already handles the 2022 rates shock: VIX stayed ≥17 throughout 2022, keeping the strategy in 1×SPY for the full year. Rates DD of 16.4% is the SPY×Regime return during that period — not a drawdown artifact. Adding rate signals creates new false-positive risk during zero-rate environments without solving anything V53b doesn't already handle.
+
+---
+
 ## Previous champion: V50 SPY×Regime — archived numbers
 
 | Metric | **V50 SPY×Regime** | SPY B&H | QQQ B&H |
