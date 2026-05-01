@@ -82,6 +82,31 @@ V51 is the clear winner on absolute CAGR (+20.89%) among strategies with managea
 
 **V53b re-evaluation:** After the swap-lag correction, V53b's VIX layer adds no value over V51: V53b CAGR 13.58% vs V51 20.89%, similar MaxDD (30.6% vs 36.6%). The `min_hold_down=1` setting fires a swap on every 1-day VIX spike, generating 122 swaps that cost 5.76% of days in T-bills, disproportionately during brief volatility recoveries. V53b is demoted; V51 is the champion.
 
+### 1-day debounce variants (2026-05-01)
+
+Sweeping the debounce from 5d to 1d (raw signal, no filter) improves every risk-adjusted metric. The 1d variants exit on every single-day regime close signal rather than requiring 5 consecutive days — effectively a short-term SMA100 momentum strategy.
+
+**Variant comparison (2006-06-21 → 2026-05-01, $100k start, MOO fill):**
+
+| Variant | CAGR | Sharpe | Calmar | MaxDD | COVID | Rates | Beta | End $100k | Trans |
+|---------|------|--------|--------|-------|-------|-------|------|-----------|-------|
+| **V51.1 SSO×Regime (2×, 1d)** | **+22.63%** | **1.00** | **0.72** | 31.3% | **18.8%** | **13.6%** | 0.70 | **$5.75M** | 319 |
+| V51 SSO×Regime (2×, 5d) ★ | +18.25% | 0.78 | 0.50 | 36.6% | 23.4% | 31.8% | 0.84 | $2.79M | 30 |
+| **V50.1 SPY×Regime (1×, 1d)** | +12.68% | **1.09** | **0.76** | **16.6%** | **9.7%** | **6.9%** | 0.35 | $1.07M | 319 |
+| V50 SPY×Regime (1×, 5d) | +10.86% | 0.87 | 0.56 | 19.3% | 12.4% | 16.4% | 0.42 | $0.77M | 30 |
+| SPY B&H | +11.18% | 0.68 | 0.20 | 55.2% | 33.7% | 24.5% | 1.00 | $0.82M | — |
+| QQQ B&H | +16.39% | 0.85 | 0.31 | 53.4% | 28.6% | 35.1% | 1.05 | $2.04M | — |
+
+Beta is OLS vs SPY daily returns (same-period aligned). Low beta reflects that the regime gate keeps the strategy in cash during the worst SPY drawdowns, reducing unconditional market exposure below the nominal leverage.
+
+Key findings:
+- V51.1 is the new high-water mark on CAGR (+22.63%), Sharpe (1.00), and Calmar (0.72), and cuts MaxDD vs V51 (31.3% vs 36.6%)
+- V50.1 has the highest Sharpe of any variant (1.09) and lowest MaxDD (16.6%) — meaningful for risk-constrained deployment
+- The 1d→5d jump is a phase transition: 1d passes the raw signal (319 transitions), 5d filters out most 1-day oscillations in the SMA100–SMA200 reentry zone (30 transitions)
+- Trade-off: 319 round-trips per 20 years vs 30 — execution cost and slippage must be modeled for live deployment
+
+Chart: `mixa/docs/v51_variants_compare.png`
+
 ---
 
 ## Project Update — 2026-04-30 (V53b promotion — superseded)
@@ -334,13 +359,16 @@ Same regime signal across all three — SMA200 gate + ^IRX adaptive reopen + 5-d
 
 > **Execution fix note (2026-04-30):** Previous V50 numbers (+15.96% CAGR, Sharpe 1.32, MaxDD 12.9%) were inflated by same-bar look-ahead bias and 570 daily whipsaw trades. Corrected figures below use 1-day execution lag + 5-day debounce.
 
-### V50 — full period (2000-01-01 → 2026-04-30)
+### V50 / V50.1 — full period (2000-01-01 → 2026-05-01)
 
-| Strategy | End value | CAGR | Sharpe | MaxDD | GFC | COVID | Rates |
-|----------|-----------|------|--------|-------|-----|-------|-------|
-| **V50 SPY×Regime (T-bill)** | **$1,046,225** | **+9.33%** | **0.79** | **19.3%** | **14.5%** | **12.4%** | **16.4%** |
-| SPY buy & hold | $778,811 | +8.11% | 0.53 | 55.2% | 55% | 34% | 24% |
-| QQQ buy & hold | $835,433 | +8.40% | 0.46 | 83.0% | 78% | 29% | 35% |
+| Strategy | End value | CAGR | Sharpe | Calmar | MaxDD | GFC | COVID | Rates |
+|----------|-----------|------|--------|--------|-------|-----|-------|-------|
+| **V50.1 SPY×Regime (1×, 1d)** | **$1,085,491** | **+9.48%** | **0.85** | 0.30 | 31.6% | **13.3%** | **9.7%** | **6.9%** |
+| V50 SPY×Regime (1×, 5d) | $1,031,331 | +9.27% | 0.78 | **0.48** | **19.3%** | 13.2% | 12.4% | 16.4% |
+| SPY buy & hold | $778,811 | +8.11% | 0.53 | 0.15 | 55.2% | 55% | 34% | 24% |
+| QQQ buy & hold | $827,713 | +8.36% | 0.46 | 0.10 | 83.0% | 78% | 29% | 35% |
+
+**V50.1 caution — Dot-com crash:** V50.1's MaxDD is 31.6% over the full period vs 16.6% from 2006. The 1-day raw signal whipsaws during the 2000–2002 structural bear market, catching repeated failed bounces. V50's 5-day debounce holds MaxDD at 19.3% regardless of start date. The 2006-start numbers flatter V50.1 — its Calmar over the full period is 0.30 vs 0.76 from 2006.
 
 ![V50 full backtest equity + annual + drawdown](v50_full_backtest.png)
 
