@@ -6,6 +6,54 @@
 
 ---
 
+## Project Status — 2026-05-01
+
+### Live simulation
+
+| Item | Value |
+|------|-------|
+| Mode | Simulation (`~/.mixa/simulation.db`) |
+| Started | 2026-05-01 (DB reset, week backfilled from 2026-04-24) |
+| Champion | V51 SSO×Regime (2×) |
+| Position | 1607 SSO, entry @ $62.07, entered 2026-04-27 |
+| Cash | $253.51 |
+| Regime | OPEN |
+| Portfolio (2026-04-29) | $99,550 |
+
+### Simulation week replay (2026-04-24 → 2026-05-01)
+
+| Date | Event | Portfolio |
+|------|-------|-----------|
+| 2026-04-24 | EOD: regime OPEN → pending BUY 1607 SSO @ $62.21 | $100,000 |
+| 2026-04-27 | EOD: fill @ $62.07 (open, within limit); regime OPEN, no new orders | $100,562 |
+| 2026-04-28 | EOD: regime OPEN, hold SSO | $99,566 |
+| 2026-04-29 | EOD: regime OPEN, hold SSO | $99,550 |
+| 2026-04-30/05-01 | No new data bars; falls back to 2026-04-29 signal | $99,550 |
+
+### Cron schedule (server time = ET)
+
+```
+20 16 * * 1-5   runner_eod_v51.py  --mode simulation   # 4:20 PM ET weekdays
+30  8 * * 1-5   runner_morning.py  --mode simulation   # 8:30 AM ET weekdays
+```
+
+### Key files
+
+| File | Purpose |
+|------|---------|
+| `mixa/live/runner_eod_v51.py` | EOD signal + fill simulation |
+| `mixa/live/runner_morning.py` | Morning order preview (simulation) |
+| `mixa/live/notify.py` | Pushover notifications + disk reports |
+| `mixa/backtest/run.py` | Core backtest engine (MOO fill + swap-lag) |
+| `mixa/backtest/v53b_compare.py` | V50/V51/V52/V53b 4-way comparison |
+| `mixa/backtest/v51_v50_compare.py` | V51/V50 vs SPY/QQQ champion plot |
+| `mixa/docs/v53b_compare.png` | 4-way comparison chart |
+| `mixa/docs/v51_v50_compare.png` | Champion vs benchmarks chart |
+| `~/.mixa/simulation.db` | State: positions, cash, orders, snapshots |
+| `~/.mixa/reports/` | Daily EOD and morning text reports |
+
+---
+
 ## Project Update — 2026-05-01 (backtest model corrections; V51 champion)
 
 ### Backtest corrections: swap-lag + MOO fill model
