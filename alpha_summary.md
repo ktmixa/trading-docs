@@ -2,6 +2,26 @@
 *Research summary for signal design, backtesting conclusions, and open questions.*
 *Period covered: 2000-01-01 → 2026-04-30 (26.4 years). $100k starting capital.*
 
+---
+
+## Performance Summary — V51.DD12 vs Benchmarks (2000–2026, synthetic SSO)
+
+![V51.DD12 vs Benchmarks](chart_v51dd12.png)
+
+| Strategy | CAGR | MaxDD | Sharpe |
+|---|---|---|---|
+| SPY B&H | 8.2% | 55.2% | 0.53 |
+| QQQ B&H | 8.4% | 83.0% | 0.46 |
+| SSO B&H (synthetic 2×) | 9.1% | 88.2% | 0.43 |
+| V51 (SSO 2× regime only, no VIX gate) | 12.7% | 47.4% | 0.62 |
+| **V51.DD12** (exit-DD 12% guard) | **12.3%** | **39.4%** | **0.62** |
+
+V51.DD12 matches V51's Sharpe (0.62) while cutting MaxDD by 8pp (39.4% vs 47.4%) and
+eliminating the 2001–2003 re-entry problem that makes raw V51 impractical. Full research
+history below; chart script at `backtest/chart_v51dd12.py`.
+
+---
+
 > **Fill model note (2026-04-26):** All figures from this date forward use the **standard limit order** fill model — orders placed pre-market at signal_px (prior close); fill at open if open ≤ limit, fill at limit if price touches intraday, unfilled otherwise. The previous "gap-skip" rule (reject buys that open >1% above limit) has been removed — it modelled a human watching the open, which does not apply to pre-market limit orders. This lowers all historical CAGR figures by ~50bp vs prior summaries; the fill model is now correct.
 
 ---
