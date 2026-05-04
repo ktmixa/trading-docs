@@ -6,6 +6,72 @@
 
 ---
 
+## Project Update — 2026-05-04 (V51.SC: two-phase MA-cross reopen guard)
+
+### Motivation
+
+V51.S (N=10 sustained-close override) reduces dot-com MaxDD from 74.4% → 67.7% but does not
+eliminate it. The remaining 67.7% comes from **bear-bounce whipsaw re-entries** during 2001–2003:
+after the forced exit in October 2000, the raw regime signal reopens on brief SPY rallies above
+SMA100 while the bear market is still in progress. Each re-entry into SSO accumulates further
+losses.
+
+The fix: after a **forced exit** (sustained-close override triggered), require confirmation that
+the bear trend has fully resolved before allowing re-entry. A simple "wait for SMA100 > SMA200"
+fails because the bull-market SMA cross persists for months after the peak (SMA100 > SMA200 was
+still true in October 2000 despite the bear being well underway). So a two-phase guard is needed:
+
+```
+Phase 1 — Bear confirmation: wait until SMA100 < SMA200 (bear is now established in the MAs)
+Phase 2 — Recovery confirmation: wait until SMA100 > SMA200 again (full golden-cross recovery)
+```
+
+Only after both phases complete is re-entry from a forced exit allowed. Normal exits (VIX rank ≥
+40%) still use the existing fast re-entry rule (raw regime open → invest immediately).
+
+### Sweep results: V51.SC vs V51.S vs baseline
+
+| Variant | 2000–26 CAGR | 2000–26 MaxDD | Dot-com DD | 2000–26 GFC DD | 2006–26 CAGR | 2006–26 MaxDD | 2006–26 GFC DD |
+|---|---|---|---|---|---|---|---|
+| V51.R (baseline N=0) | 10.8% | 74.4% | 74.4% | 60.9% | 27.4% | 29.8% | 18.8% |
+| V51.S (N=10, fast reopen) | 11.9% | 67.7% | 67.7% | 46.9% | 27.0% | 29.8% | 17.1% |
+| **V51.SC (N=10, MA-cross)** ★ | **12.2%** | **48.9%** | **45.6%** | **29.2%** | **25.5%** | **29.8%** | **15.2%** |
+| V51.SC (N=5, MA-cross) | 8.6% | 49.2% | 44.0% | 28.9% | 18.7% | 29.8% | 15.2% |
+| V51.SC (N=3, MA-cross) | 8.7% | 51.4% | 39.8% | 28.9% | 18.3% | 32.7% | 15.2% |
+
+**N=10 is the clear winner.** N=5 and N=3 fire the override too early in non-bear regimes,
+causing 8+ pp CAGR loss on 2006–26 from delayed re-entries into normal corrections.
+
+### Key findings (N=10, two-phase guard)
+
+**Dot-com protection: 74.4% → 45.6% MaxDD (−28.8pp)**
+- Two-phase guard eliminates the bear-bounce whipsaws in 2001–2003
+- Strategy stays in cash throughout the prolonged bear until the full SMA recovery cross occurs
+- Residual 45.6% is from the initial position loss before the forced exit triggers (Oct 2000)
+- Comparable to SPY B&H dot-com MaxDD (47.5%) — V51.SC is no longer worse than buy-and-hold
+  during a dot-com replay
+
+**GFC protection: 60.9% → 29.2% MaxDD (−31.7pp) on 2000–26 window**
+- Two-phase guard also protects the 2008–2009 GFC: after the forced exit, the guard holds cash
+  through the GFC bear, waiting for the SMA golden-cross recovery (which arrives mid-2009)
+- On the 2006–26 real SSO window: 18.8% → 15.2% GFC DD
+
+**Cost: 27.4% → 25.5% CAGR on 2006–26 (−1.9pp)**
+- The guard occasionally delays re-entry after normal regime corrections (not slow bears)
+- 2006–26 MaxDD is unchanged at 29.8% — the guard does not harm the normal operating regime
+
+**Risk-adjusted verdict:** −1.9pp CAGR to halve tail-risk in the worst-case scenario is a
+rational tradeoff. V51.SC's Calmar on 2006–26: 25.5% / 29.8% = **0.86** vs V51.R's 0.92 —
+slightly lower in normal markets, materially better in slow-onset bears.
+
+### Status
+
+Research complete. **V51.SC (N=10, two-phase MA-cross)** identified as the preferred successor to
+V51.R. Live runner (`runner_eod_v51r.py`) not yet updated — promotion pending final decision.
+The two-phase guard is implemented in `backtest/vR_extended_research.py` and confirmed working.
+
+---
+
 ## Project Update — 2026-05-04 (V51.S: sustained-close override for slow-onset bears)
 
 ### Root cause: dot-com failure mode diagnosed
