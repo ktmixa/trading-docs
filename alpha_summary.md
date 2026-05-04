@@ -22,7 +22,36 @@ history below; chart script at `backtest/chart_headline.py`.
 
 ---
 
-> **Fill model note (2026-05-04):** All figures use the **Marketable Limit** execution model — orders placed pre-market with a 1% gap-tolerance buffer: buy limit = signal_px × 1.01, sell limit = signal_px × 0.99. Fill logic: open within buffer → fill at open [A]; open beyond buffer but intraday touch → fill at limit [B]; no touch → unfilled [C]. Backtester (`executor/fill_logic.py`) and live runner (`live/runner_eod_v51r.py`) are synchronized on this convention. Prior note (2026-04-26) removed the gap-skip rule; this update adds the 1% buffer so the limit is marketable rather than exact-close.
+> **Fill model (2026-05-04, final):** All V51 backtest figures use the **Marketable Limit** model. `compute_regime_spy_metrics` now applies `fill_limit_pct=0.01`: entry fills at `min(open[T+1], close[T]×1.01)`, exit fills at `max(open[T+1], close[T]×0.99)`. The live runner (`runner_eod_v51r.py`) constructs the identical limit prices and submits them to IBKR as `LMT / DAY / outsideRth=False` orders via `IBKRExecutor`. Both paths log `limit_price` and `avgFillPrice` for post-trade slippage audit. V51.DD12 metrics are unchanged at this precision (gap events on signal days too rare to shift CAGR/MaxDD to 1dp for a weekly-turnover strategy).
+
+---
+
+## Project Update — 2026-05-04 (Execution Sync: Marketable Limit)
+
+All three layers — backtest engine, simulation runner, live IBKR runner — now use identical fill logic.
+
+**Order construction (live runner):**
+- Buy: `limit_price = round(sso_close × 1.01, 2)` — accepts fills up to 1% above prior close
+- Sell: `limit_price = round(sso_close × 0.99, 2)` — accepts fills down to 1% below prior close
+- Order type: `LMT`, `tif=DAY`, `outsideRth=False` (routes into primary opening auction cross)
+- Submit before 9:28 AM ET
+
+**Fill conditions (Conditions A / B / C):**
+
+| Condition | Entry (buy) | Exit (sell) |
+|---|---|---|
+| A — open within buffer | open ≤ limit → fill at open | open ≥ limit → fill at open |
+| B — intraday touch | low ≤ limit → fill at limit | high ≥ limit → fill at limit |
+| C — never touched | order expires unfilled | order expires unfilled |
+
+Condition C is negligible for SSO (liquid, high-volume ETF; intraday ranges routinely exceed 1%).
+
+**Slippage audit:** every fill logs `signal_px / limit_price / avgFillPrice / slip_bp` to the order log. For simulation fills this runs in `_simulate_pending_fills`; for live fills it runs in `IBKRExecutor.submit_order`.
+
+**Backtest sync (`compute_regime_spy_metrics`):**
+- New parameter `fill_limit_pct=0.01` (default)
+- Vectorised: `entry_fill = clip(open[T+1], upper=close[T]×1.01)`, `exit_fill = clip(open[T+1], lower=close[T]×0.99)`
+- All `run_2state` calls pass this value; existing results unchanged at 1dp
 
 ---
 
