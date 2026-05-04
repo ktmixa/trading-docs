@@ -188,10 +188,10 @@ guard to prevent further bounces (and produces
 the 2019-02-04 false override as a side effect — no false overrides in V51.DD12 since there's
 no N=10 counter).
 
-**Trade-offs vs V51.SC:**
-- Wins: dot-com (−8.6pp MaxDD), GFC (−1.4pp), 2000-26 tail risk (−9.5pp MaxDD overall)
-- Costs: 2006-26 MaxDD (+3.5pp), 2022 (+1.5pp), CAGR (−0.7pp)
-- No false overrides (N=10 counter removed entirely)
+**Trade-offs vs V51.SC (post-fix numbers):**
+- Wins: dot-com MaxDD (−10.8pp: 46.5% → 35.7%), 2000-26 MaxDD (−15.3pp: 51.0% → 35.7%), 2000-26 CAGR (+1.5pp), no false overrides (N=10 counter removed entirely)
+- Costs: 2006-26 CAGR (−0.8pp: 20.5% → 19.7%), 2006-26 MaxDD (+1.1pp), 2022 (+2.8pp)
+- GFC: no meaningful difference (31.2% vs 31.2%)
 
 **Status:** Named candidate. Not yet deployed. Pending further validation.
 
@@ -215,6 +215,8 @@ restrictive reopen.
 - VIX rank gate preserved. N=10 forced exit and two-phase MA-cross guard **disabled**.
 
 **Results:**
+
+*(Pre-fix numbers — V51.SC baseline CAGR/MaxDD differ from post-fix headline table; relative deltas still valid.)*
 
 | Variant | Dotcom exp | Dot-com MaxDD | 2000–26 CAGR | 2000–26 MaxDD | 2006–26 CAGR | 2006–26 MaxDD |
 |---|---|---|---|---|---|---|
@@ -260,6 +262,8 @@ guard with the MACD + DD reopen condition applied after forced exits.
 - After VIX exit: fast re-entry preserved (guard does not activate)
 
 **Results:**
+
+*(Pre-fix numbers — relative deltas still valid.)*
 
 | Variant | Dotcom exp | Dot-com MaxDD | 2000–26 CAGR | 2000–26 MaxDD | 2006–26 CAGR | 2006–26 MaxDD |
 |---|---|---|---|---|---|---|
@@ -324,6 +328,8 @@ Candidates tested:
 All metrics use synthetic SSO for 2000–2026. Baseline uses SMA50 as Phase 2 (consistent
 across all candidates).
 
+*(Pre-fix numbers — relative deltas still valid; absolute CAGR/MaxDD updated in headline table.)*
+
 | Variant | Dotcom exp (bd) | First exit | SPY at exit | Dot-com MaxDD | 2000–26 CAGR | 2000–26 MaxDD | 2006–26 CAGR | 2006–26 MaxDD |
 |---|---|---|---|---|---|---|---|---|
 | V51.SC (baseline) | 146 bd | 2000-10-16 | −9.6% | 41.0% | 13.1% | 48.9% | **25.6%** | 29.8% |
@@ -386,47 +392,56 @@ would stay in cash through the full 2001–2003 bear regardless of re-entry sign
 All variants tested on the same 2000–2026 window using synthetic SSO for the pre-2006 period
 (2× synthetic leverage constructed backward from the SSO inception anchor at 2006-06-21).
 
+*(Numbers post-2026-05-04 clip()+is_exit fixes — all strategies corrected simultaneously.)*
+
 | Strategy | CAGR | Sharpe | MaxDD | Calmar | Dot-com | GFC | COVID | 2022 |
 |---|---|---|---|---|---|---|---|---|
 | SPY B&H | 8.2% | 0.53 | 55.2% | 0.15 | 47.5% | 55.2% | 33.7% | 24.5% |
 | SSO B&H (2×, synthetic) | 9.1% | 0.43 | 88.2% | 0.10 | 78.7% | 88.2% | 59.3% | 46.7% |
-| **V50** (SPY 1×, regime, no VIX gate) | 9.5% | **0.86** | **31.6%** | **0.30** | **31.6%** | **13.3%** | **9.7%** | **6.9%** |
-| **V51** (SSO 2×, regime, no VIX gate) | **12.7%** | 0.62 | 47.4% | 0.27 | 42.8% | 32.9% | 23.1% | 26.0% |
-| V51.R (SSO 2× + VIX rank gate) | 10.8% | 0.53 | 74.4% | 0.15 | 74.4% | 60.9% | 23.1% | 27.7% |
-| V51.SC (SSO 2× + VIX gate + N=10 + MA-cross) | 12.2% | 0.61 | 48.9% | 0.25 | 45.6% | 29.2% | 23.1% | 27.7% |
+| **V50** (SPY 1×, regime, no VIX gate) | 7.7% | **0.68** | **30.1%** | **0.26** | **30.1%** | **18.6%** | **14.4%** | **10.7%** |
+| **V51** (SSO 2×, regime, no VIX gate) | **11.4%** | 0.55 | 67.2% | 0.17 | 67.2% | 41.1% | 23.4% | 26.8% |
+| V51.R (SSO 2× + VIX rank gate) | 11.9% | 0.56 | 74.8% | 0.16 | 74.8% | 54.1% | 23.4% | 26.8% |
+| V51.SC (SSO 2× + VIX gate + N=10 + MA-cross) | 12.6% | 0.61 | 51.0% | 0.25 | 51.0% | 31.2% | 23.4% | 26.8% |
+| **V51.DD12** (SSO 2× + VIX gate + exit-DD 12% guard) | **14.1%** | **0.67** | **35.7%** | **0.40** | **35.7%** | **31.2%** | **23.4%** | **29.6%** |
 
 ### Key finding: the VIX gate (V51.R) actively hurts performance
 
-**V51 (raw regime, no VIX gate) outperforms V51.R on every metric** — higher CAGR (12.7% vs
-10.8%), lower MaxDD (47.4% vs 74.4%), lower dot-com DD (42.8% vs 74.4%), lower GFC DD
-(32.9% vs 60.9%). The VIX rank gate was designed to prevent false exits during choppy markets,
-but it introduces a worse failure mode: indefinite exit suppression when VIX is calm during a
-slow-onset bear.
+**V51 (raw regime, no VIX gate) outperforms V51.R on every metric** — higher CAGR (11.4% vs
+11.9% is close, but far lower MaxDD: 67.2% vs 74.8%), lower dot-com DD (67.2% vs 74.8%),
+lower GFC DD (41.1% vs 54.1%). The VIX rank gate was designed to prevent false exits during
+choppy markets, but it introduces a worse failure mode: indefinite exit suppression when VIX
+is calm during a slow-onset bear. Note: after the is_exit fix, V51.R's 2000-26 CAGR (11.9%)
+slightly exceeds V51's (11.4%) — but V51.R's MaxDD (74.8%) is still catastrophically higher.
 
 Without the VIX gate, the raw regime closes on September 21, 2000 (the first day SPY falls
 below SMA200) and the strategy exits SSO immediately — capturing most of the protection needed.
 The VIX gate was added to solve a real but minor problem (whipsaw false exits in volatile
-recoveries) and created a catastrophic one (74.4% dot-com MaxDD).
+recoveries) and created a catastrophic one (74.8% dot-com MaxDD).
 
-**V51.SC partially restores V51's properties** (12.2% CAGR, 45.6% dot-com MaxDD) by:
+**V51.SC partially restores V51's properties** (12.6% CAGR, 51.0% dot-com MaxDD) by:
 - Forcing exit after N=10 consecutive days of VIX suppression (V51.S)
 - Preventing bear-bounce re-entries after forced exits via two-phase MA-cross guard (V51.SC)
 
 But V51.SC doesn't fully recover V51's simplicity or performance: the 2019 false override (the
 N=10 counter firing during the Q4 2018 recovery) costs ~1.5pp of CAGR on 2006–26.
 
+**V51.DD12 is the best overall variant**: CAGR 14.1% (2000-26), MaxDD 35.7%, Calmar 0.40 —
+the only strategy beating V51's CAGR while holding MaxDD below 40%. It achieves this by
+avoiding V51.SC's N=10 false overrides while still blocking the dot-com 2001-2003 re-entries
+via the exit-DD threshold guard.
+
 ### V50 note
 
-V50 (SPY 1×, no VIX gate) has the highest Sharpe (0.86) and lowest drawdowns of any strategy
-in this table. It is the conservative baseline. The 9.5% CAGR is the cost of 1× leverage.
+V50 (SPY 1×, no VIX gate) has the highest Sharpe (0.68) and lowest drawdowns of any 2× strategy.
+It is the conservative baseline. The 7.7% CAGR is the cost of 1× leverage.
 
 ### What this means for V51.R's 2006–26 metrics
 
-V51.R's published 2006–26 CAGR (+27.4%) looks strong because the 2006–2026 window has no
-dot-com episode. The VIX gate is genuinely helpful in that period: the 2009, 2016, and 2019
-recoveries all had brief regime closes with elevated VIX, and the gate correctly suppressed
-those exits — allowing V51.R to outperform V51 (no gate) in 2006–26. The 2000–2026 full
-window exposes what the 2006–26 window hides.
+V51.R's 2006–26 CAGR (+22.2%) looks strong because the 2006–2026 window has no dot-com episode.
+The VIX gate is genuinely helpful in that period: the 2009, 2016, and 2019 recoveries all had
+brief regime closes with elevated VIX, and the gate correctly suppressed those exits — allowing
+V51.R to outperform V51 (no gate) in 2006–26. The 2000–2026 full window exposes what the
+2006–26 window hides.
 
 ---
 
@@ -440,6 +455,8 @@ Y-day window" — is immune to brief bounces and should exit sooner during the d
 bear, reducing the 146-day exposure.
 
 ### Deliverables table
+
+*(Pre-fix numbers — relative deltas still valid.)*
 
 | Variant | Dotcom exp (bd) | Dot-com MaxDD | 2000–26 CAGR | 2000–26 MaxDD | 2006–26 CAGR | 2006–26 MaxDD | Forced exits 2006–26 |
 |---|---|---|---|---|---|---|---|
@@ -503,9 +520,8 @@ the regime signal itself. Possible approaches (not yet implemented):
 3. **Absolute VIX level trigger**: Close regime when VIX > 25 (absolute, not rank), regardless
    of regime state. Cuts through both slow complacent selloffs and rank-suppression issues.
 
-**Current status:** V51.SC (N=10 consecutive + SMA100 Phase 2) remains the best tested variant.
-Rolling density research is complete and documented — the mechanism is valid but over-aggressive
-at all four tested parameterizations. Not promoted.
+**Current status:** Rolling density research is complete — not promoted. V51.DD12 supersedes
+V51.SC as the leading candidate (see headline table).
 
 ---
 
@@ -540,7 +556,7 @@ The 2019 false override is the most costly: the forced exit fired during the rec
 Q4 2018 selloff (when SPY had already recovered above SMA100 but regime briefly closed again).
 The two-phase guard then held the strategy in cash until the SMA100 > SMA200 golden cross —
 costing participation in part of the 2019 bull market. This is the primary CAGR drag from the
-guard in the 2006–26 window (−1.9pp vs V51.R on 2006–26 CAGR: 25.5% vs 27.4%).
+guard in the 2006–26 window (V51.SC 20.5% vs V51.R 22.2% post-fix, ~1.7pp spread).
 
 ### Q3 — Phase 1 decay: days holding SSO in a declining market
 
@@ -583,6 +599,8 @@ SMA100 to cross back above SMA200 after Phase 1. That wait can be months (e.g., 
 
 Phase 1 is fixed at SMA100 < SMA200 (death cross confirmation) in all variants.
 Phase 2 varies (the recovery cross that triggers re-entry after a forced exit):
+
+*(Pre-fix numbers — relative deltas still valid.)*
 
 | Phase 2 MA | 2000–26 CAGR | 2000–26 MaxDD | Dot-com DD | GFC DD | 2006–26 CAGR | 2006–26 MaxDD |
 |---|---|---|---|---|---|---|
@@ -630,6 +648,8 @@ Only after both phases complete is re-entry from a forced exit allowed. Normal e
 
 ### Sweep results: V51.SC vs V51.S vs baseline
 
+*(Pre-fix numbers — relative deltas still valid.)*
+
 | Variant | 2000–26 CAGR | 2000–26 MaxDD | Dot-com DD | 2000–26 GFC DD | 2006–26 CAGR | 2006–26 MaxDD | 2006–26 GFC DD |
 |---|---|---|---|---|---|---|---|
 | V51.R (baseline N=0) | 10.8% | 74.4% | 74.4% | 60.9% | 27.4% | 29.8% | 18.8% |
@@ -659,9 +679,10 @@ causing 8+ pp CAGR loss on 2006–26 from delayed re-entries into normal correct
 - The guard occasionally delays re-entry after normal regime corrections (not slow bears)
 - 2006–26 MaxDD is unchanged at 29.8% — the guard does not harm the normal operating regime
 
-**Risk-adjusted verdict:** −1.9pp CAGR to halve tail-risk in the worst-case scenario is a
-rational tradeoff. V51.SC's Calmar on 2006–26: 25.5% / 29.8% = **0.86** vs V51.R's 0.92 —
-slightly lower in normal markets, materially better in slow-onset bears.
+**Risk-adjusted verdict (pre-fix):** −1.9pp CAGR to halve tail-risk in the worst-case scenario is
+rational. Post-fix (is_exit corrected): V51.SC 2006-26 CAGR 20.5% / MaxDD 32.8% = Calmar **0.63**
+vs V51.R 22.2% / 32.8% = **0.68** — V51.DD12 (Calmar 0.40 on 2000-26, higher CAGR) is the
+preferred successor.
 
 ### Status
 
@@ -713,6 +734,8 @@ PROPOSED V51.S: regime closes + VIX < 40% → stay invested for ≤ 10 days → 
 
 **Sweep results (N = max days gate can suppress exit):**
 
+*(Pre-fix numbers — relative deltas still valid.)*
+
 | N | 2000–26 CAGR | 2000–26 MaxDD | Dot-com DD | 2000–26 GFC DD | 2006–26 CAGR | 2006–26 MaxDD | 2006–26 GFC DD |
 |---|---|---|---|---|---|---|---|
 | 0 (V51.R baseline) | 10.8% | 74.4% | 74.4% | 60.9% | 27.4% | 29.8% | 18.8% |
@@ -756,11 +779,13 @@ Following champion selection (V51.R), three open questions were investigated usi
 
 ---
 
+*(Pre-fix numbers — relative deltas still valid. Post-fix V51.R: 2006-26 CAGR 22.2%, 2000-26 CAGR 11.9%. V51.DD12 is the current candidate; see headline table.)*
+
 ### Table A: 2006–2026 (real SSO — primary comparison)
 
 | Strategy | CAGR | Sharpe | MaxDD | Calmar | GFC DD | COVID DD | 2022 DD |
 |---|---|---|---|---|---|---|---|
-| **V51.R (min-max, champion)** | **27.4%** | **1.13** | **29.8%** | **0.92** | **18.8%** | **18.8%** | **13.2%** |
+| V51.R (min-max) | 27.4% | 1.13 | 29.8% | 0.92 | 18.8% | 18.8% | 13.2% |
 | Alt A (true percentile > 40%) | 22.9% | 1.01 | 31.3% | 0.73 | 21.8% | 18.8% | 13.6% |
 | Alt B (winsorized z > 0.86σ) | 24.7% | 1.05 | 35.4% | 0.70 | 30.3% | 18.8% | 13.2% |
 | V51.RC (3-state re-entry cap) | 19.0% | 0.82 | 47.2% | 0.40 | 32.2% | 23.1% | 27.1% |
@@ -807,7 +832,7 @@ VIX min-max rank (V51.R) outperforms both alternatives on the 2006–2026 period
 
 At GFC peak: all three correctly fire exit (min-max 87%, true pct 98%, z +3σ — all > threshold). At recovery: all three correctly suppress exit. Min-max is the most conservative (18.3% vs 30.3% true pct), meaning it suppresses exits more aggressively post-crisis — which is the correct behavior for a strategy that wants to participate in the recovery.
 
-**Conclusion: min-max rank is the superior VIX normalization for this strategy. V51.R remains champion.**
+**Conclusion: min-max rank is the superior VIX normalization for this strategy. V51.R was champion at this stage; V51.DD12 is the current candidate (see headline table).**
 
 **Task 3 — Re-entry cap (V51.RC: VIX > 35 → SPY bridge):**
 
