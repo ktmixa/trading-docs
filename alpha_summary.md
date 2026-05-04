@@ -6,6 +6,87 @@
 
 ---
 
+## Project Update — 2026-05-03 (Research tasks: synthetic SSO, VIX alt methods, re-entry cap)
+
+### Research context
+
+Following champion selection (V51.R), three open questions were investigated using a synthetic SSO series extended back to 2000-01-03 (dot-com era) and two alternative VIX normalization methods.
+
+**Synthetic SSO construction (pre-2006-06-21):**
+- `synth_ret_daily = 2 × SPY_daily_ret − IRX_daily_rate/252 − 0.0091/252`
+- Built backward from real SSO anchor price $3.6503 on 2006-06-21
+- Stitch gap: $0.0000 (exact match — correct anchor date method)
+- Source: `backtest/vR_extended_research.py`
+
+---
+
+### Table A: 2006–2026 (real SSO — primary comparison)
+
+| Strategy | CAGR | Sharpe | MaxDD | Calmar | GFC DD | COVID DD | 2022 DD |
+|---|---|---|---|---|---|---|---|
+| **V51.R (min-max, champion)** | **27.4%** | **1.13** | **29.8%** | **0.92** | **18.8%** | **18.8%** | **13.2%** |
+| Alt A (true percentile > 40%) | 22.9% | 1.01 | 31.3% | 0.73 | 21.8% | 18.8% | 13.6% |
+| Alt B (winsorized z > 0.86σ) | 24.7% | 1.05 | 35.4% | 0.70 | 30.3% | 18.8% | 13.2% |
+| V51.RC (3-state re-entry cap) | 19.0% | 0.82 | 47.2% | 0.40 | 32.2% | 23.1% | 27.1% |
+| SSO B&H | 15.4% | 0.59 | 84.7% | 0.18 | 84.7% | 59.3% | 46.7% |
+| SPY B&H | 11.2% | 0.68 | 55.2% | 0.20 | 55.2% | 33.7% | 24.5% |
+| QQQ B&H | 16.4% | 0.85 | 53.4% | 0.31 | 53.4% | 28.6% | 35.1% |
+
+### Table B: 2000–2026 (synthetic SSO pre-2006 — dot-com stress test)
+
+| Strategy | CAGR | Sharpe | MaxDD | Calmar | Dotcom DD | GFC DD | COVID DD | 2022 DD |
+|---|---|---|---|---|---|---|---|---|
+| V51.R (min-max, 2000–) | 10.8% | 0.53 | 74.4% | 0.15 | 74.4% | 60.9% | 23.1% | 27.7% |
+| Alt A (true pct, 2000–) | 10.0% | 0.52 | 68.1% | 0.15 | 68.1% | 51.1% | 23.1% | 26.0% |
+| Alt B (winsor-z, 2000–) | 9.5% | 0.49 | 74.0% | 0.13 | 74.0% | 60.6% | 23.1% | 27.7% |
+| V51.RC (3-state, 2000–) | 10.4% | 0.52 | 74.4% | 0.14 | 74.4% | 61.0% | 23.1% | 27.1% |
+| SSO B&H | 9.1% | 0.43 | 88.2% | 0.10 | 78.7% | 88.2% | 59.3% | 46.7% |
+| SPY B&H | 8.2% | 0.53 | 55.2% | 0.15 | 47.5% | 55.2% | 33.7% | 24.5% |
+
+---
+
+### Research findings (all three tasks)
+
+**Task 1 — Dot-com stress test (2000–2006 extension):**
+
+The regime gate does NOT protect from the dot-com crash at 2× leverage. All strategies show 68–74% MaxDD during 2000-03 → 2003-12. Root cause: SPY's SMA200 signal fires with a delay (~3–6 months after peak), during which synthetic SSO has already fallen ~50–60%. By contrast, GFC MaxDD is only 18.8% (2006+ baseline) because the strategy was running with calibrated VIX history and the regime closed promptly.
+
+Key lesson: The 2006-2026 backtest with real SSO is the correct reference period. The 2000-2006 extension reveals additional historical context but does not represent an achievable outcome (SSO did not exist; strategy would have held SPY pre-inception).
+
+**Task 2 — VIX normalization alternatives:**
+
+VIX min-max rank (V51.R) outperforms both alternatives on the 2006–2026 period:
+
+- **True percentile (Alt A)**: 22.9% CAGR vs 27.4%. *Why worse:* In low-VIX bull years (2013–2019), VIX=20 reads as ~60th percentile (most prior days had lower VIX), triggering exit. Min-max rank reads VIX=20 as ~20–30% (because post-crisis max is still elevated), suppressing the exit. True percentile fires too many false exits in secular bull markets.
+
+- **Winsorized z (Alt B)**: 24.7% CAGR vs 27.4%. Calibrated threshold 0.86σ to match baseline exit frequency. Slightly worse performance and higher GFC DD (30.3% vs 18.8%), likely because the z-score renormalizes after clipping, losing some post-crisis memory.
+
+- **Crisis-memory comparison at key dates:**
+
+| Date | VIX | Min-max | True pct | Winsorized z |
+|---|---|---|---|---|
+| 2009-06-01 (recovery) | 30.0 | 18.3% | 30.3% | −0.67σ |
+| 2008-11-21 (GFC peak) | 72.7 | 87.3% | 98.4% | +3.09σ |
+| 2003-06-01 (post-dotcom) | 19.5 | 4.0% | 1.2% | −1.85σ |
+
+At GFC peak: all three correctly fire exit (min-max 87%, true pct 98%, z +3σ — all > threshold). At recovery: all three correctly suppress exit. Min-max is the most conservative (18.3% vs 30.3% true pct), meaning it suppresses exits more aggressively post-crisis — which is the correct behavior for a strategy that wants to participate in the recovery.
+
+**Conclusion: min-max rank is the superior VIX normalization for this strategy. V51.R remains champion.**
+
+**Task 3 — Re-entry cap (V51.RC: VIX > 35 → SPY bridge):**
+
+V51.RC significantly underperforms (19.0% CAGR, 47.2% MaxDD, 0.40 Calmar vs V51.R's 27.4%, 29.8%, 0.92). The SPY bridge delays full SSO exposure on regime reopens, costing recovery alpha. When VIX > 35 at regime open, the strategy enters SPY instead of SSO; it doesn't upgrade to SSO until VIX drops to ≤ 35. This means the strategy misses the early, fastest phase of post-crisis recovery when SSO outperforms SPY 2:1.
+
+The 2022 DD increases from 13.2% to 27.1% because the prolonged VIX elevation (~20–35) in 2022 kept the strategy in SPY bridge state on re-entries, then VIX declined and SSO was purchased at a later, lower-return entry point.
+
+**Conclusion: re-entry cap hurts. V51.R's unconditional re-entry is correct.**
+
+**Chart:** `mixa/docs/vR_extended_research.png`
+
+![V51.R extended research: 2000–2026 equity curves, annual returns, drawdown](vR_extended_research.png)
+
+---
+
 ## Project Update — 2026-05-03 (V51.R — new champion)
 
 ### VIX-rank exit filter: V50.R / V51.R / V52.R
