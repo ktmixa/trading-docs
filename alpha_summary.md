@@ -6,6 +6,83 @@
 
 ---
 
+## Project Update — 2026-05-04 (Dual-Factor Regime Gate: solving the 128-day MA lag)
+
+### Architecture
+
+All candidates keep the V51.SC exit/re-entry superstructure intact (VIX rank exit at 40%,
+N=10 sustained-close override, two-phase MA-cross guard with SMA50 Phase 2). The only change
+is the core `regime_open` definition, which becomes:
+
+```
+Regime OPEN = SPY > SMA200  AND  <additional early-warning signal>
+```
+
+Candidates tested:
+- **Trailing Drawdown**: SPY within X% of its trailing 252-day high (X = 6%, 8%, 10%)
+- **MACD(12,26,9)**: MACD histogram > 0 (medium-term momentum intact)
+- **ROC-60**: 60-day rate of change > 0 (3-month return positive)
+
+### Results
+
+All metrics use synthetic SSO for 2000–2026. Baseline uses SMA50 as Phase 2 (consistent
+across all candidates).
+
+| Variant | Dotcom exp (bd) | First exit | SPY at exit | Dot-com MaxDD | 2000–26 CAGR | 2000–26 MaxDD | 2006–26 CAGR | 2006–26 MaxDD |
+|---|---|---|---|---|---|---|---|---|
+| V51.SC (baseline) | 146 bd | 2000-10-16 | −9.6% | 41.0% | 13.1% | 48.9% | **25.6%** | 29.8% |
+| DD-6% + V51.SC | **14 bd** | 2000-04-13 | −6.1% | 47.2% | 5.9% | 47.2% | 14.2% | 27.4% |
+| **DD-8% + V51.SC** | **15 bd** | 2000-04-14 | −11.4% | **37.9%** | 7.5% | 47.6% | **19.2%** | 31.3% |
+| DD-10% + V51.SC | 15 bd | 2000-04-14 | −11.4% | 51.5% | 9.4% | 51.5% | 22.0% | 31.6% |
+| MACD(12,26,9) + V51.SC | **8 bd** | 2000-04-05 | −2.8% | **29.0%** | 1.5% | 29.0% | 3.2% | 19.5% |
+| ROC-60 + V51.SC | 14 bd | 2000-04-13 | −6.1% | 41.3% | 3.2% | 41.3% | 8.1% | 30.1% |
+
+### Key findings
+
+**The 128-day problem is structurally solvable.** Every dual-factor gate reduces dot-com
+exposure from 146 bdays to 8–15 bdays. In all cases the exit is a standard VIX exit on
+April 5–14, 2000 — the NASDAQ tech crash caused a brief VIX spike that crossed the 40th
+percentile just 8–15 days after the SPY peak. What changed is that without the additional
+filter the regime was still OPEN on those days (SPY above SMA200), so the VIX spike had no
+effect. With the dual-factor regime, the regime was already CLOSED by mid-April, and the
+VIX spike fired the exit.
+
+**The reopen condition is the hidden problem.** All dot-com exits are `vix_exit` (not N=10
+forced), so the two-phase MA-cross guard does NOT activate — the strategy re-enters as soon
+as the dual-factor regime reopens. During 2001–2003, each bear-market bounce that recovers
+SPY to within 6–10% of the (now lower, rolling) 252-day high reopens the drawdown filter,
+causing re-entries before the bear fully ends. This is why DD-6% (47.2%) and DD-10% (51.5%)
+have WORSE dot-com MaxDD than DD-8% (37.9%).
+
+**MACD's persistence is its advantage — and its poison.** MACD stays negative throughout
+the entire 2001–2003 bear, blocking every re-entry (29.0% dot-com MaxDD). But MACD also
+turns negative during every routine correction in a healthy bull market, collapsing 2006–26
+CAGR to 3.2%. The signal is right about direction but too trigger-happy in normal regimes.
+
+**DD-8% is the best-balanced single candidate**: 37.9% dot-com MaxDD (−3.1pp vs baseline),
+19.2% 2006–26 CAGR (−6.4pp vs baseline). The cost is not acceptable for deployment as-is.
+
+### What needs to change
+
+The core tension is that all dual-factor filters are **symmetric**: the same condition that
+triggers a close also blocks a reopen. A drawdown filter that closes the regime at −8% from
+peak also *reopens* the regime once the rolling 252-day high drifts down during the bear,
+making it easy to re-enter during bounces.
+
+The next logical step is an **asymmetric gate**: stricter close condition (early-warning
+signal) with a different, more conservative reopen condition. For example:
+- **Close**: SPY > SMA200 AND drawdown < 8% from 252-day high
+- **Reopen**: SPY > SMA100 AND drawdown < 8% AND MACD > 0 (require both at reopen)
+
+Alternatively: combine the dual-factor close with the two-phase guard at ALL exits (not just
+N=10 forced exits). If any dual-factor closure activated the MA-cross guard, the strategy
+would stay in cash through the full 2001–2003 bear regardless of re-entry signal.
+
+**Status:** Dual-factor regime gate research complete. No candidate promoted — all degrade
+2006–26 CAGR unacceptably. Asymmetric gate design is the identified next step.
+
+---
+
 ## Project Update — 2026-05-04 (Full variant progression: V50 → V51 → V51.R → V51.SC)
 
 ### Full comparison on 2000–2026 synthetic SSO

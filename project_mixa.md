@@ -56,9 +56,20 @@ V51.SC partially restores V51's properties at the cost of slightly more complexi
   in 2006–26 vs 3 for baseline → 2006-26 CAGR collapses to 17–21%
 - Conclusion: boiling-frog fix must happen at the regime signal level, not the gate
 
+**Dual-factor regime gate research (2026-05-04) — NOT adopted:**
+Tested adding early-warning close condition to SPY > SMA200: drawdown (6/8/10%), MACD(12,26,9),
+ROC-60. All reduce dot-com exposure from 146 → 8–15 bdays. Best candidates:
+- DD-8%: 37.9% dot-com MaxDD, 19.2% 2006-26 CAGR (−6.4pp vs baseline)
+- MACD: 29.0% dot-com MaxDD, 3.2% 2006-26 CAGR (unusable)
+Core problem: exit is VIX-triggered (not N=10), so two-phase guard never activates → strategy
+re-enters during 2001-2003 bear bounces whenever the rolling 252-day high drifts within range.
+Fix requires asymmetric gate (stricter close, separate reopen) or applying MA-cross guard to
+ALL exits, not just N=10 forced exits.
+
 **Open research directions:**
-1. Faster regime close signal (SMA150 or SMA100 instead of SMA200)
-2. Peak-based trailing stop (close if SPY falls X% from 252-day high near SMA200)
+1. Asymmetric dual-factor gate: different conditions for close vs. reopen
+2. Apply two-phase MA-cross guard to ALL exits (not just N=10 forced), making every
+   VIX-triggered exit in a bear require death-cross + golden-cross confirmation to re-enter
 3. Absolute VIX level trigger (VIX > 25 forces close regardless of regime state)
 
 **Cron schedule (ET):**
