@@ -64,11 +64,22 @@ re-enters during 2001–2003 bear bounces when rolling 252-day high drifts withi
 DD-8% is best balance but still costs 6.4pp CAGR (unusable). MACD persistence is what makes
 it effective (29% dot-com MaxDD) but same persistence kills normal-market returns (3.2%).
 
+**Asymmetric gate research (2026-05-04) — NOT adopted:**
+V51.A: Close = SPY < SMA200 OR DD > 8%; Reopen = SPY > SMA100 AND MACD > 0 AND DD < 8%.
+VIX gate neutralises early close — VIX rank ≈ 2% in 2000 suppresses exit indefinitely without
+N=10. First exit still October 2000 (same as V51.SC). Asymmetric reopen does block 2001–2003
+bear bounces (dot-com MaxDD 28.7% vs 41.0%), but costs 8.6pp CAGR (25.6% → 17.0%).
+V51.AC (N=10 + MACD+DD guard on forced exits only): guard never activates for dot-com because
+the exit was a VIX exit, not N=10 forced. Dot-com MaxDD 39.1% (1.9pp gain), CAGR −1.7pp.
+Root cause confirmed: dot-com 2001–2003 re-entry protection requires guarding ALL exits, not
+just forced ones. Guard must be universal or conditional on DD-at-exit depth.
+
 **Open research directions:**
-1. Asymmetric dual-factor gate: use early-warning signal for CLOSE but stricter/different
-   condition for REOPEN (e.g., require MACD > 0 AND drawdown < 8% to reopen)
-2. Extend two-phase MA-cross guard to ALL exits (not just N=10 forced) — keeps strategy in
-   cash through full 2001–2003 bear regardless of regime re-entry signal
+1. Exit-DD threshold guard: apply MACD+DD reopen only when DD at exit > threshold (8–12%)
+   — catches slow-onset bear exits (Oct 2000: −9.6%) while allowing fast re-entry after
+   shallow corrections (2011, 2015-16, 2018 Q4 where exit DD was small)
+2. Extend two-phase MA-cross guard to ALL exits with Phase 1 timeout (N days to confirm
+   death cross; if not confirmed, fall back to fast re-entry — avoids cash lock in shallow bears)
 3. Absolute VIX level trigger (VIX > 25 forces close regardless of regime state)
 
 **Architecture:**

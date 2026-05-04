@@ -6,6 +6,111 @@
 
 ---
 
+## Project Update — 2026-05-04 (Asymmetric Gate: V51.A and V51.AC)
+
+### Motivation
+
+The dual-factor gate research showed that symmetric early-warning filters (DD-8%, MACD, ROC-60)
+successfully exit before the dot-com crash in April 2000, but allow re-entries during 2001–2003
+bear bounces because the same condition that triggers a close also triggers a reopen once the
+rolling 252-day high drifts down. The identified fix was an **asymmetric gate**: fast close,
+restrictive reopen.
+
+### V51.A — Asymmetric regime (no N=10, no MA-cross guard)
+
+**Design:**
+- Close: `SPY < SMA200` **OR** `trailing DD from 252-day high > 8%`
+- Reopen: `SPY > SMA100` **AND** `MACD(12,26,9) histogram > 0` **AND** `DD < 8%`
+- VIX rank gate preserved. N=10 forced exit and two-phase MA-cross guard **disabled**.
+
+**Results:**
+
+| Variant | Dotcom exp | Dot-com MaxDD | 2000–26 CAGR | 2000–26 MaxDD | 2006–26 CAGR | 2006–26 MaxDD |
+|---|---|---|---|---|---|---|
+| V51.SC (baseline) | 146 bd | 41.0% | 13.1% | 48.9% | **25.6%** | 29.8% |
+| **V51.A** | 146 bd | **28.7%** | 9.2% | 36.1% | 17.0% | 30.6% |
+
+**Stress breakdown (2000–2026):**
+
+| Period | V51.SC | V51.A |
+|---|---|---|
+| Dot-com | 41.0% | **28.7%** |
+| GFC | 33.4% | 36.1% |
+| COVID | 23.1% | 23.1% |
+| 2022 | 27.7% | 26.9% |
+
+**Key finding — the VIX gate neutralises the faster close:**
+The DD > 8% close condition fires in ~May 2000, but the VIX gate suppresses the exit because
+VIX rank is only ~2% (market is falling calmly). Without N=10 to punch through the suppression,
+the exit still happens on **2000-10-16** (146 bd after peak) via VIX exit — identical timing to
+V51.SC. The early close condition adds zero benefit.
+
+**Where V51.A does help:**
+The asymmetric reopen (baked into the raw regime signal, so it applies after ALL exits) prevents
+2001–2003 bear-bounce re-entries. `raw_val` stays False throughout 2001–2003 because MACD is
+negative or DD is still > 8%. Dot-com MaxDD drops from 41.0% → **28.7%** — the best result seen.
+
+**Cost:** 2006–26 CAGR drops from 25.6% → 17.0% (−8.6pp). Every routine correction (2011,
+2015-16, 2018 Q4) delays re-entry because MACD + DD conditions must both clear. The asymmetric
+reopen that protects against 2001–2003 also restricts every subsequent normal-market re-entry.
+
+**Status:** Not adopted. Dot-com protection is excellent; 2006–26 CAGR cost is unacceptable.
+
+---
+
+### V51.AC — N=10 forced exit + asymmetric reopen guard
+
+**Hypothesis:** Keep N=10 as the forced-exit mechanism; replace only the two-phase MA-cross
+guard with the MACD + DD reopen condition applied after forced exits.
+
+**Design:**
+- Same exit path as V51.SC (VIX rank ≥ 40% or N=10 forced)
+- After N=10 forced exit: guard blocks re-entry until `MACD histogram > 0` AND `DD < 8%`
+- After VIX exit: fast re-entry preserved (guard does not activate)
+
+**Results:**
+
+| Variant | Dotcom exp | Dot-com MaxDD | 2000–26 CAGR | 2000–26 MaxDD | 2006–26 CAGR | 2006–26 MaxDD |
+|---|---|---|---|---|---|---|
+| V51.SC (N=10 + MA-cross guard) | 146 bd | 41.0% | 13.1% | 48.9% | **25.6%** | 29.8% |
+| V51.A (asym reopen, no N=10) | 146 bd | 28.7% | 9.2% | 36.1% | 17.0% | 30.6% |
+| **V51.AC (N=10 + asym reopen)** | 146 bd | **39.1%** | 11.4% | 48.9% | 23.9% | 29.8% |
+
+**Key finding — guard never activates for dot-com:**
+In the dot-com scenario, the October 2000 exit is a **VIX exit** (VIX rank hit 40% before the
+N=10 counter expired). `forced_exit_pending = False`, so the MACD+DD guard never activates.
+V51.AC re-enters during 2001–2003 bear bounces on the same timing as V51.SC. The 1.9pp
+improvement in dot-com MaxDD (41.0% → 39.1%) is incidental timing noise, not structural protection.
+
+The asymmetric guard in V51.AC is structurally inert for the scenario it was designed to fix.
+
+**Cost:** 2006–26 CAGR drops from 25.6% → 23.9% (−1.7pp) with no meaningful dot-com benefit.
+
+**Status:** Not adopted. Worse than V51.SC on cost-benefit.
+
+---
+
+### Root cause and next direction
+
+Both experiments confirm the same structural constraint: **dot-com 2001–2003 re-entry protection
+requires blocking re-entries after VIX exits, not just after forced exits.** The guard must apply
+universally — not conditionally on how the exit was triggered.
+
+The identified next step is an **exit-DD threshold guard**: apply the asymmetric reopen
+conditions selectively — only when the exit occurred with DD > threshold at time of exit.
+- If DD at exit > 8%: apply MACD + DD < 8% guard (deep drawdown at exit → likely bear)
+- If DD at exit ≤ 8%: fast re-entry (shallow exit → likely false signal or minor correction)
+
+This would catch the October 2000 exit (SPY was −9.6% from peak at exit) while preserving fast
+re-entry for 2011/2015/2018-style corrections where DD was small at the exit moment.
+
+**Open research directions:**
+1. Exit-DD threshold guard: sweep DD-at-exit activation threshold (6%, 8%, 10%, 12%)
+2. Extend two-phase MA-cross guard to ALL exits with Phase 1 timeout (if SMA death cross never
+   forms within N days, fall back to fast re-entry — avoids indefinite cash lock in shallow bears)
+
+---
+
 ## Project Update — 2026-05-04 (Dual-Factor Regime Gate: solving the 128-day MA lag)
 
 ### Architecture
