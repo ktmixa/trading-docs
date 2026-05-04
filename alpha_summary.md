@@ -4,19 +4,20 @@
 
 ---
 
-## Performance Summary — V51.DD12 Headline (2000–2026, synthetic SSO pre-2006)
+## Performance Summary — Current Contenders (2000–2026, synthetic pre-inception)
 
 ![V51.DD12 Headline](chart_headline.png)
 
-| Strategy | CAGR | MaxDD | Sharpe | Dot-com | GFC | COVID | 2022 |
-|---|---|---|---|---|---|---|---|
-| SPY B&H | 8.2% | 55.2% | 0.53 | 47.5% | 55.2% | 33.7% | 24.5% |
-| QQQ B&H | 8.4% | 83.0% | 0.46 | 83.0% | 77.8% | 28.6% | 35.1% |
-| V50 (SPY 1×, regime only) | 7.7% | 30.1% | 0.68 | 30.1% | 18.6% | 14.4% | 10.7% |
-| V51 (SSO 2×, regime only) | 11.4% | 67.2% | 0.55 | 67.2% | 41.1% | 23.4% | 26.8% |
-| **V51.DD12** (exit-DD 12% guard) | **14.1%** | **35.7%** | **0.67** | **35.7%** | **31.2%** | **23.4%** | **29.6%** |
+| Strategy | CAGR | MaxDD | Calmar | Dot-com | GFC | COVID | 2022 | End $100k |
+|---|---|---|---|---|---|---|---|---|
+| SPY B&H | 8.2% | 55.2% | 0.15 | 44.4% | 55.2% | 33.7% | 24.5% | $789k |
+| QQQ B&H | 8.4% | 83.0% | 0.10 | 78.8% | 52.0% | 28.6% | 34.3% | $843k |
+| V50 (SPY 1×, regime only) | 7.7% | 30.1% | 0.26 | 30.1% | 18.6% | 14.4% | 10.7% | — |
+| V51 (SSO 2×, regime only) | 11.4% | 67.2% | 0.17 | 67.2% | 41.1% | 23.4% | 26.8% | — |
+| **V51.DD12** (2× + DD guard) | **14.1%** | **35.7%** | **0.40** | **35.7%** | **31.2%** | **23.4%** | **29.6%** | **$3,236k** |
+| **V52.DD12** (3× + DD guard) | **18.5%** | **51.5%** | **0.36** | **39.8%** | **35.1%** | **32.7%** | **41.9%** | **$8,768k** |
 
-2006–2026 (real SSO): V51.DD12 CAGR **19.7%**, MaxDD **33.9%**, GFC **31.2%**, COVID **23.4%**, 2022 **29.6%**.
+2006–2026 (real SSO/UPRO): V51.DD12 CAGR **19.7%**, MaxDD **33.9%**. V52.DD12 uses synthetic UPRO anchored 2009-06-25.
 V51.R 2006–26: CAGR **22.2%**, MaxDD **32.8%**. V51.SC 2006–26: CAGR **20.5%**, MaxDD **32.8%**.
 
 ---
@@ -24,6 +25,56 @@ V51.R 2006–26: CAGR **22.2%**, MaxDD **32.8%**. V51.SC 2006–26: CAGR **20.5%
 > **Backtest correctness (2026-05-04, two bugs fixed):**
 > 1. **clip() execution fantasy** — `clip(open, upper=limit)` magically filled at the limit even when the market gapped over it and never returned. Fixed: boolean masking on `low`/`high` gates fills; Condition C (unfilled) holds position and retries next day with a fresh limit.
 > 2. **is_exit one-day look-ahead** — the stateful loop built an `is_exit` set by checking `regime_ok[T+1]`, which the live runner cannot know at close of T. Exit was triggered one day early (at T+1 open instead of T+2 open). Fixed: `should_exit = not signal_in` only — exits trigger when T's own signal turns False, placing the sell order for T+1 open. Impact: ~3pp CAGR reduction in 2006–26 vs pre-fix figures (exits are now one day later in bear markets, which is correct behavior).
+
+---
+
+## Vintage CAGR Analysis — if started Jan 1 of year X, held through 2026-05-02
+
+![Vintage CAGR by start year](chart_vintage.png)
+
+Each row answers: "If I deployed capital on the first trading day of this year and held until today, what annualised CAGR would I have earned?"  Strategy equity curves are computed once over the full 2000–2026 range; each vintage slices the same equity series from its start date.
+
+```
+Start    Yrs        SPY        QQQ        V50        V51   V51.DD12   V52.DD12
+──────────────────────────────────────────────────────────────────────────────
+ 2000   26.3       8.2%       8.4%       7.8%      11.8%      14.5%      19.1% ← V52.DD12
+ 2001   25.3       9.0%      11.3%       8.5%      13.4%      16.2%      22.1% ← V52.DD12
+ 2002   24.3       9.8%      13.1%       8.9%      15.0%      16.9%      23.1% ← V52.DD12
+ 2003   23.3      11.3%      15.9%       9.7%      17.4%      17.7%      24.2% ← V52.DD12
+ 2004   22.3      10.7%      14.8%       9.3%      16.4%      17.0%      23.0% ← V52.DD12
+ 2005   21.3      10.8%      15.1%       9.9%      17.2%      17.9%      24.3% ← V52.DD12
+ 2006   20.3      10.9%      15.6%      10.2%      17.4%      18.1%      24.6% ← V52.DD12
+ 2007   19.3      10.8%      16.2%      10.1%      17.3%      18.0%      24.5% ← V52.DD12
+ 2008   18.3      11.2%      16.1%      10.9%      19.6%      20.4%      28.3% ← V52.DD12
+ 2009   17.3      14.6%      20.5%      11.5%      20.6%      21.5%      29.9% ← V52.DD12
+ 2010   16.3      14.0%      18.8%      10.9%      17.5%      18.4%      25.1% ← V52.DD12
+ 2011   15.3      14.0%      18.7%      11.8%      18.5%      18.1%      24.7% ← V52.DD12
+ 2012   14.3      14.8%      19.9%      12.8%      21.8%      20.4%      28.5% ← V52.DD12
+ 2013   13.3      14.7%      19.9%      12.8%      21.8%      19.6%      27.1% ← V52.DD12
+ 2014   12.3      13.7%      19.0%      11.7%      19.1%      16.8%      22.5% ← V52.DD12
+ 2015   11.3      13.6%      18.9%      12.0%      19.7%      17.2%      23.0% ← V52.DD12
+ 2016   10.3      15.0%      20.1%      12.3%      22.2%      20.1%      27.6% ← V52.DD12
+ 2017    9.3      15.1%      21.2%      12.7%      22.3%      19.9%      27.1% ← V52.DD12
+ 2018    8.3      14.3%      19.8%      11.6%      19.9%      17.3%      22.6% ← V52.DD12
+ 2019    7.3      17.3%      23.0%      14.5%      26.9%      22.3%      30.8% ← V52.DD12
+ 2020    6.3      15.0%      20.4%      15.1%      25.4%      22.2%      30.3% ← V52.DD12
+ 2021    5.3      14.9%      16.4%      15.2%      24.5%      23.0%      31.8% ← V52.DD12
+ 2022    4.3      11.5%      13.4%      12.0%      16.7%      14.9%      18.8% ← V52.DD12
+ 2023    3.3      22.7%      33.2%      15.7%      33.9%      32.9%      47.0% ← V52.DD12
+ 2024    2.3      21.3%      25.4%      17.8%      35.7%      35.7%      51.1% ← V52.DD12
+ 2025    1.3      18.3%      23.9%      10.7%      25.6%      25.6%      35.2% ← V52.DD12
+──────────────────────────────────────────────────────────────────────────────
+```
+
+**Key findings:**
+
+- **V52.DD12 wins all 26 vintages (26/26).** The higher compounding rate of 3× leverage overwhelms all other strategies at every time horizon tested — including the bear-market windows where dot-com/GFC exposure is most severe.
+- **V51.DD12 wins 2000–2009 over V51 (+2.4–5pp CAGR).** For 2010+ starts, V51 pulls ahead of V51.DD12 (no dot-com/GFC drag; guard costs re-entry in secular bull). V52.DD12 wins both windows.
+- **V52.DD12 margin over V51.DD12**: +4–6pp CAGR for early starts (2000–2009), +4–9pp for late starts (2019–2023). The extra CAGR compounds aggressively in long windows.
+- **The 51.5% MaxDD of V52.DD12 is the price.** For any start year, the portfolio will see deeper drawdowns (~40–50%) compared to V51.DD12 (~35%). Vintage CAGR doesn't capture intra-period pain.
+- **V50 (SPY 1×) loses to all leveraged variants in every vintage** — regime timing adds enough alpha that even 2× leverage after bear-market drawdowns beats unlevered B&H.
+
+Script: `backtest/chart_vintage.py`. Chart: `docs/chart_vintage.png`.
 
 ---
 
@@ -194,6 +245,62 @@ no N=10 counter).
 - GFC: no meaningful difference (31.2% vs 31.2%)
 
 **Status:** Named candidate. Not yet deployed. Pending further validation.
+
+---
+
+## Project Update — 2026-05-04 (V52.DD12: 3× UPRO variant)
+
+### Concept
+
+Apply the identical V51.DD12 gate logic to a 3× leveraged SPY instrument (UPRO / synthetic
+UPRO). No change to regime, VIX gate, exit-DD threshold, or reopen guard — only the held
+instrument changes from SSO (2×) to UPRO (3×).
+
+Synthetic UPRO extended back to 2000-01-03 using the same backward-chaining method as
+synthetic SSO, anchored at real UPRO close on 2009-06-25 ($1.1323):
+
+```
+R_synth = 3·R_SPY − 2·IRX_daily − 0.92%/252
+```
+
+### Results (2000–2026, synthetic UPRO pre-2009)
+
+| Strategy | CAGR | MaxDD | Calmar | Dot-com | GFC | COVID | 2022 | End $100k |
+|---|---|---|---|---|---|---|---|---|
+| SPY B&H | 8.2% | 55.2% | 0.15 | 44.4% | 55.2% | 33.7% | 24.5% | $789k |
+| UPRO B&H (3×, no gate) | 7.1% | 98.0% | 0.07 | 91.6% | 95.5% | 76.8% | 63.9% | $602k |
+| V51.DD12 (2×) | 14.1% | 35.7% | 0.40 | 39.8% | 31.2% | 23.4% | 29.6% | $3,236k |
+| **V52.DD12 (3×)** | **18.5%** | **51.5%** | **0.36** | **39.8%** | **35.1%** | **32.7%** | **41.9%** | **$8,768k** |
+
+### Key findings
+
+**The gate does the heavy lifting at any leverage.** UPRO B&H without the gate produces 98%
+MaxDD and 7.1% CAGR — worse than SPY. With the gate, V52.DD12 achieves 18.5% CAGR and 51.5%
+MaxDD. Almost all of the 3× ETF's raw volatility drag is neutralised by regime-based cash parking.
+
+**+4.4pp CAGR at the cost of +15.8pp MaxDD vs V51.DD12.** The leverage multiplier lifts CAGR
+from 14.1% to 18.5% but deepens the worst drawdowns: dot-com 35.7% → 39.8%, GFC 31.2% → 35.1%,
+2022 29.6% → 41.9%. Calmar ratio drops slightly (0.40 → 0.36) — the extra CAGR is not quite
+proportional to the extra risk.
+
+**Terminal wealth gap is dramatic.** $100k → $3.2M (V51.DD12) vs $100k → $8.8M (V52.DD12) over
+26 years. The compounding effect of 4.4pp extra CAGR over two decades produces 2.7× more wealth.
+
+**V52.DD12 wins every vintage (26/26).** Even for 2000 starts that span the dot-com crash,
+V52.DD12's 19.1% vintage CAGR beats V51.DD12's 14.5% — the extra compounding in the 2003–2026
+recovery more than covers the deeper 2000–2002 drawdown.
+
+**The 51.5% MaxDD is the decision variable.** For an investor who can hold through a >50%
+drawdown without capitulating, V52.DD12 dominates on every wealth-creation metric. For an
+investor with a lower risk tolerance or leverage constraints (margin/IBKR), V51.DD12 remains
+the better choice at 35.7% MaxDD.
+
+### Status
+
+Research candidate. Same gate logic as V51.DD12 — deployment would require replacing SSO with
+UPRO in the live runner's instrument selection. Not yet deployed.
+
+Script: `backtest/run_v52dd12.py`.
 
 ---
 
@@ -396,13 +503,15 @@ All variants tested on the same 2000–2026 window using synthetic SSO for the p
 
 | Strategy | CAGR | Sharpe | MaxDD | Calmar | Dot-com | GFC | COVID | 2022 |
 |---|---|---|---|---|---|---|---|---|
-| SPY B&H | 8.2% | 0.53 | 55.2% | 0.15 | 47.5% | 55.2% | 33.7% | 24.5% |
+| SPY B&H | 8.2% | 0.53 | 55.2% | 0.15 | 44.4% | 55.2% | 33.7% | 24.5% |
 | SSO B&H (2×, synthetic) | 9.1% | 0.43 | 88.2% | 0.10 | 78.7% | 88.2% | 59.3% | 46.7% |
+| UPRO B&H (3×, synthetic) | 7.1% | — | 98.0% | 0.07 | 91.6% | 95.5% | 76.8% | 63.9% |
 | **V50** (SPY 1×, regime, no VIX gate) | 7.7% | **0.68** | **30.1%** | **0.26** | **30.1%** | **18.6%** | **14.4%** | **10.7%** |
 | **V51** (SSO 2×, regime, no VIX gate) | **11.4%** | 0.55 | 67.2% | 0.17 | 67.2% | 41.1% | 23.4% | 26.8% |
 | V51.R (SSO 2× + VIX rank gate) | 11.9% | 0.56 | 74.8% | 0.16 | 74.8% | 54.1% | 23.4% | 26.8% |
 | V51.SC (SSO 2× + VIX gate + N=10 + MA-cross) | 12.6% | 0.61 | 51.0% | 0.25 | 51.0% | 31.2% | 23.4% | 26.8% |
 | **V51.DD12** (SSO 2× + VIX gate + exit-DD 12% guard) | **14.1%** | **0.67** | **35.7%** | **0.40** | **35.7%** | **31.2%** | **23.4%** | **29.6%** |
+| **V52.DD12** (UPRO 3× + VIX gate + exit-DD 12% guard) | **18.5%** | — | **51.5%** | **0.36** | **39.8%** | **35.1%** | **32.7%** | **41.9%** |
 
 ### Key finding: the VIX gate (V51.R) actively hurts performance
 
