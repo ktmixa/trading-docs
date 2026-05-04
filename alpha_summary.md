@@ -6,7 +6,66 @@
 
 ---
 
-## Project Status — 2026-05-01
+## Project Update — 2026-05-03 (V51.R — new champion)
+
+### VIX-rank exit filter: V50.R / V51.R / V52.R
+
+**Motivation:** V51.1 (1-day debounce, 249 transitions) has 70% false-exit rate in regime transitions — 1-day regime closures that reverse the next day. A fixed VIX threshold (e.g. VIX > 18) improves this but is arbitrary and doesn't adapt to evolving volatility regimes across decades (2000s vs 2010s vs 2020s).
+
+**Solution — VIX percentile rank exit gate:**
+- Exit to cash only when the SPY regime gate closes **AND** VIX is above the **40th percentile of its trailing 252-day range** (min-max rank, not z-score)
+- Re-entry (regime open → equity) is never filtered — always act immediately
+- Threshold is regime-adaptive: VIX 20 reads differently in 2008 vs 2019 vs 2024
+
+**Why rank, not z-score:** VIX rank uses min-max normalization; after a crisis spike the 252-day max stays elevated for months, suppressing the rank reading. This gives the strategy implicit "crisis memory" — it stays invested during post-crisis recoveries when VIX is falling but still somewhat elevated. A z-score threshold around the same level performs notably worse (+24-26% CAGR vs +27.3%) because it lacks this property.
+
+**Why 40%, not 50%:** 40th percentile = "VIX is closer to its recent floor than its recent peak." Exit when there is real fear signal, not just above-average noise. Sweeps confirm 40% is a region of strong performance, not a knife-edge.
+
+**New variants (locked — VIX rank₂₅₂ > 40% exit gate):**
+
+| Variant | Instrument | From | CAGR | Sharpe | Calmar | MaxDD | End $100k |
+|---------|-----------|------|------|--------|--------|-------|-----------|
+| **V51.R (champion)** | SSO (2×) | 2006-06-21 | **+27.3%** | **1.12** | **0.91** | **29.8%** | **$11,994k** |
+| V50.R | SPY (1×) | 2006-06-21 | +15.0% | 1.21 | 0.96 | 15.7% | $1,596k |
+| V52.R | SPXL (3×) | 2008-11-05 | +43.7% | 1.16 | 1.01 | 43.2% | $56,579k |
+| SPY B&H | — | 2006-06-21 | +11.2% | 0.65 | 0.20 | 55.2% | $830k |
+| QQQ B&H | — | 2006-06-21 | +16.4% | 0.80 | 0.31 | 53.4% | $2,036k |
+
+**V51.R vs V51.1 (old champion):** +4.6pp CAGR (+22.7% → +27.3%), Sharpe +0.12, Calmar +0.19, MaxDD −1.5pp, transitions reduced 249 → 97. Improvement comes almost entirely from 2009 (+82.6% vs +20.6%) and 2019 (+64.5% vs +14.4%) — years where VIX was calm and the 1-day signal was producing false exits.
+
+**Robustness — rolling starting-year test (2006–2024):**
+
+CAGR range across all starting years:
+
+| Variant | Min CAGR | Max CAGR | Range |
+|---------|----------|----------|-------|
+| SPY B&H | +10.8% | +22.7% | 11.9pp |
+| QQQ B&H | +15.6% | +33.3% | 17.7pp |
+| V50.R | +14.6% | +21.3% | **6.7pp** — tightest of any |
+| V51.R | +26.6% | +39.1% | **12.5pp** — floor above all SPY/QQQ ceilings |
+| V52.R | +39.6% | +58.6% | **19.0pp** |
+
+MaxDD range across all starting years:
+
+| Variant | Min MDD | Max MDD | Avg |
+|---------|---------|---------|-----|
+| SPY B&H | 18.8% | 55.2% | 34.4% |
+| QQQ B&H | 22.8% | 53.4% | 36.5% |
+| V50.R | **8.6%** | **15.7%** | **13.6%** |
+| V51.R | **17.6%** | **29.8%** | **26.2%** |
+| V52.R | 26.0% | 43.2% | 36.3% |
+
+**V50.R's worst-ever MaxDD (15.7%) is better than SPY B&H's best-ever MaxDD (18.8%)**, regardless of starting year — including starts that lived through the 2008-2009 financial crisis.
+
+**Charts:** `mixa/docs/vR_compare.png` · `mixa/docs/vR_robustness.png`
+
+![V50.R / V51.R / V52.R equity, annual, drawdown](vR_compare.png)
+
+![Robustness: CAGR and MaxDD by starting year](vR_robustness.png)
+
+---
+
+## Project Status — 2026-05-03
 
 ### Live simulation
 
@@ -14,7 +73,7 @@
 |------|-------|
 | Mode | Simulation (`~/.mixa/simulation.db`) |
 | Started | 2026-05-01 (DB reset, week backfilled from 2026-04-24) |
-| Champion | V51 SSO×Regime (2×) |
+| Champion | **V51.R** SSO×Regime + VIX-rank filter (2×) |
 | Position | 1607 SSO, entry @ $62.07, entered 2026-04-27 |
 | Cash | $253.51 |
 | Regime | OPEN |
@@ -251,16 +310,18 @@ V53b's VIX layer already handles the 2022 rates shock: VIX stayed ≥17 througho
 
 ---
 
-## Portfolio architecture (V51 — current champion)
+## Portfolio architecture (V51.R — current champion)
 
 Single-strategy deployment on $100k capital:
 
-| State | Allocation | Instrument |
-|-------|-----------|------------|
-| Regime open | 100% equity | SSO (2× S&P500) |
-| Regime closed | 100% cash | T-bills (^IRX daily accrual) |
+| Condition | State | Allocation | Instrument |
+|-----------|-------|-----------|------------|
+| Regime open | IN | 100% equity | SSO (2× S&P500) |
+| Regime close signal AND VIX rank₂₅₂ < 40% | IN (hold) | 100% equity | SSO — exit suppressed |
+| Regime close signal AND VIX rank₂₅₂ ≥ 40% | OUT | 100% cash | T-bills (^IRX daily accrual) |
+| Regime open signal | IN | 100% equity | SSO — no filter on re-entry |
 
-No stock picking, no position sizing, no stops, no VIX filter. Binary: SSO or T-bills. Regime gate changes on 5-day debounce. Execution at next-day open. In simulation since 2026-05-01.
+No stock picking, no position sizing, no stops. Regime gate: SPY < SMA200 to close, SPY > SMA100 AND IRX easing to reopen. 1-day debounce. VIX rank uses rolling 252-day min-max. Execution at next-day open. Simulation running V51 (no VIX filter) since 2026-05-01; V51.R runner pending.
 
 **Runners:** `mixa/live/runner_eod_v51.py` (EOD ~4:20 PM ET) + `mixa/live/runner_morning.py` (morning ~9:35 AM ET).
 
@@ -627,49 +688,48 @@ python mixa/backtest/run.py --variant 7 --fill-mode legacy       # legacy mode f
 
 ---
 
-## Strategy conclusion: V51 is the champion
+## Strategy conclusion: V51.R is the champion
 
-**V51 is the current champion** (promoted 2026-05-01). V50 is the conservative alternative. V39 and R1_189 placed on ice — stock selection adds friction, not alpha. The regime gate is the dominant return driver; leverage (SSO 2×) is the second layer.
+**V51.R is the current champion** (promoted 2026-05-03). V50.R is the conservative alternative. V52.R for aggressive/long-horizon. V39 and R1_189 placed on ice — stock selection adds friction, not alpha. The regime gate is the dominant return driver; leverage (SSO 2×) is the second layer; the VIX-rank exit filter is the third.
 
-| Metric | **V51 ★** | **V50** | **V53b** | **V52** | SPY B&H | QQQ B&H |
-|--------|-----------|--------|--------|--------|---------|---------|
-| Period | 2009–2026 | 2009–2026 | 2009–2026 | 2009–2026 | — | — |
-| End value | **$2.4M** | $689k | $855k | **$7.1M** | $1.0M | $2.1M |
-| CAGR | **+20.89%** | +12.14% | +13.58% | +28.81% | +14.93% | +19.83% |
-| Sharpe | 0.84 | **0.92** | 0.74 | 0.83 | 0.94 | 1.04 |
-| MaxDD | 36.6% | **19.3%** | 30.6% | 50.3% | 33.7% | 35.1% |
-| COVID DD | 23.4% | **12.4%** | 12.2% | 33.6% | 33.7% | 28.9% |
+| Metric | **V51.R ★** | **V50.R** | **V52.R** | SPY B&H | QQQ B&H |
+|--------|------------|---------|---------|---------|---------|
+| From | 2006-06-21 | 2006-06-21 | 2008-11-05 | 2006-06-21 | 2006-06-21 |
+| End value | **$11,994k** | $1,596k | **$56,579k** | $830k | $2,036k |
+| CAGR | **+27.3%** | +15.0% | +43.7% | +11.2% | +16.4% |
+| Sharpe | **1.12** | **1.21** | 1.16 | 0.65 | 0.80 |
+| Calmar | 0.91 | **0.96** | **1.01** | 0.20 | 0.31 |
+| MaxDD | 29.8% | **15.7%** | 43.2% | 55.2% | 53.4% |
 
-*All variants: 5-day regime debounce, 1-day execution lag, T-bill cash, IRA/tax-free.*
+*VIX-rank filter: exit regime only when VIX rank₂₅₂ > 40%. Re-entry never filtered. 1-day debounce.*
+
+![V50.R / V51.R / V52.R equity, annual, drawdown](vR_compare.png)
 
 ![V53b vs V50 vs SPY vs QQQ equity curve](regime_spy_comparison.png)
 
-![V53b vs V50, 2-year window](v53b_vs_v50_2yr.png)
-
 ---
 
-## Current recommended configuration: V51 (or V50/V52 by risk tolerance)
+## Current recommended configuration: V51.R (or V50.R/V52.R by risk tolerance)
 
-**V51** ★ — champion, IRA/long-term, moderate drawdown tolerance. In simulation since 2026-05-01:
+**V51.R** ★ — champion, IRA/long-term, moderate drawdown tolerance. Simulation running V51 since 2026-05-01; V51.R runner pending:
 - Regime open → 100% SSO (2× S&P500); regime closed → 100% T-bills
-- 5-day regime debounce, 1-day execution lag (signal at close[T] → MOO fill open[T+1])
-- *From common period (2009–2026): CAGR +20.89%, Sharpe 0.84, MaxDD 36.6%*
-- Beats SPY B&H on CAGR by +6pp. No swaps, no VIX layer, no execution complexity.
+- Exit regime only when VIX rank₂₅₂ > 40% (adaptive, not fixed threshold)
+- Re-entry never filtered. 1-day debounce.
+- *From SSO inception (2006–2026): CAGR +27.3%, Sharpe 1.12, Calmar 0.91, MaxDD 29.8%*
+- MaxDD floor: 17.6–29.8% regardless of starting year (robust to entry timing)
 
-**V50** — conservative, minimal drawdown:
-- 100% SPY when regime gate open; 100% T-bills when closed
-- *Full-period (2000–2026): CAGR +9.33%, Sharpe 0.79, MaxDD 19.3%*
-- Best Sharpe and Calmar of any variant; for investors who cannot tolerate >20% drawdown
+**V50.R** — conservative, minimal drawdown:
+- 100% SPY when regime gate open; 100% T-bills when closed; VIX rank₂₅₂ > 40% exit filter
+- *From SSO inception (2006–2026): CAGR +15.0%, Sharpe 1.21, Calmar 0.96, MaxDD 15.7%*
+- MaxDD ceiling: 15.7% across ALL starting years including 2008-2009 crisis period
+- Best risk-adjusted of the three: Calmar 0.96, tightest CAGR band (6.7pp) across starting years
 
-**V52** — aggressive:
-- Same gate; position is UPRO (3× daily S&P) when open; T-bills when closed
-- *From UPRO inception (2009–2026): CAGR +28.81%, Sharpe 0.83, MaxDD 50.3%*
-- MaxDD 50.3% — requires high drawdown tolerance; only suitable for long time horizons
+**V52.R** — aggressive, long-horizon only:
+- Same gate + VIX filter; position is SPXL (3× daily S&P) when open; T-bills when closed
+- *From SPXL inception (2008–2026): CAGR +43.7%, Sharpe 1.16, Calmar 1.01, MaxDD 43.2%*
+- MaxDD 26–43% depending on starting year. Only suitable for 10+ year horizons and high drawdown tolerance.
 
-**V53b** — demoted; not recommended:
-- VIX-gated UPRO/SPY: VIX < 17 → UPRO, VIX ≥ 17 → SPY; regime closed → T-bills
-- *Corrected (2009–2026): CAGR +13.58%, Sharpe 0.74, MaxDD 30.6%*
-- 122 UPRO↔SPY swaps cost 5.76% of days in T-bills. Underperforms V51 by 7pp CAGR.
+**V53b / V51 / V51.1** — superseded; see archived sections below.
 
 ---
 
