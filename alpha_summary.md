@@ -6,6 +6,57 @@
 
 ---
 
+## Project Update — 2026-05-04 (Full variant progression: V50 → V51 → V51.R → V51.SC)
+
+### Full comparison on 2000–2026 synthetic SSO
+
+All variants tested on the same 2000–2026 window using synthetic SSO for the pre-2006 period
+(2× synthetic leverage constructed backward from the SSO inception anchor at 2006-06-21).
+
+| Strategy | CAGR | Sharpe | MaxDD | Calmar | Dot-com | GFC | COVID | 2022 |
+|---|---|---|---|---|---|---|---|---|
+| SPY B&H | 8.2% | 0.53 | 55.2% | 0.15 | 47.5% | 55.2% | 33.7% | 24.5% |
+| SSO B&H (2×, synthetic) | 9.1% | 0.43 | 88.2% | 0.10 | 78.7% | 88.2% | 59.3% | 46.7% |
+| **V50** (SPY 1×, regime, no VIX gate) | 9.5% | **0.86** | **31.6%** | **0.30** | **31.6%** | **13.3%** | **9.7%** | **6.9%** |
+| **V51** (SSO 2×, regime, no VIX gate) | **12.7%** | 0.62 | 47.4% | 0.27 | 42.8% | 32.9% | 23.1% | 26.0% |
+| V51.R (SSO 2× + VIX rank gate) | 10.8% | 0.53 | 74.4% | 0.15 | 74.4% | 60.9% | 23.1% | 27.7% |
+| V51.SC (SSO 2× + VIX gate + N=10 + MA-cross) | 12.2% | 0.61 | 48.9% | 0.25 | 45.6% | 29.2% | 23.1% | 27.7% |
+
+### Key finding: the VIX gate (V51.R) actively hurts performance
+
+**V51 (raw regime, no VIX gate) outperforms V51.R on every metric** — higher CAGR (12.7% vs
+10.8%), lower MaxDD (47.4% vs 74.4%), lower dot-com DD (42.8% vs 74.4%), lower GFC DD
+(32.9% vs 60.9%). The VIX rank gate was designed to prevent false exits during choppy markets,
+but it introduces a worse failure mode: indefinite exit suppression when VIX is calm during a
+slow-onset bear.
+
+Without the VIX gate, the raw regime closes on September 21, 2000 (the first day SPY falls
+below SMA200) and the strategy exits SSO immediately — capturing most of the protection needed.
+The VIX gate was added to solve a real but minor problem (whipsaw false exits in volatile
+recoveries) and created a catastrophic one (74.4% dot-com MaxDD).
+
+**V51.SC partially restores V51's properties** (12.2% CAGR, 45.6% dot-com MaxDD) by:
+- Forcing exit after N=10 consecutive days of VIX suppression (V51.S)
+- Preventing bear-bounce re-entries after forced exits via two-phase MA-cross guard (V51.SC)
+
+But V51.SC doesn't fully recover V51's simplicity or performance: the 2019 false override (the
+N=10 counter firing during the Q4 2018 recovery) costs ~1.5pp of CAGR on 2006–26.
+
+### V50 note
+
+V50 (SPY 1×, no VIX gate) has the highest Sharpe (0.86) and lowest drawdowns of any strategy
+in this table. It is the conservative baseline. The 9.5% CAGR is the cost of 1× leverage.
+
+### What this means for V51.R's 2006–26 metrics
+
+V51.R's published 2006–26 CAGR (+27.4%) looks strong because the 2006–2026 window has no
+dot-com episode. The VIX gate is genuinely helpful in that period: the 2009, 2016, and 2019
+recoveries all had brief regime closes with elevated VIX, and the gate correctly suppressed
+those exits — allowing V51.R to outperform V51 (no gate) in 2006–26. The 2000–2026 full
+window exposes what the 2006–26 window hides.
+
+---
+
 ## Project Update — 2026-05-04 (Rolling Density Override: boiling-frog fix attempt)
 
 ### Hypothesis
