@@ -12,15 +12,69 @@
 |---|---|---|---|---|---|---|---|
 | SPY B&H | 8.2% | 55.2% | 0.53 | 47.5% | 55.2% | 33.7% | 24.5% |
 | QQQ B&H | 8.4% | 83.0% | 0.46 | 83.0% | 77.8% | 28.6% | 35.1% |
-| V50 (SPY 1×, regime only) | 9.6% | 30.0% | 0.85 | 30.0% | 13.8% | 8.9% | 7.1% |
-| V51 (SSO 2×, regime only) | 11.9% | 65.8% | 0.57 | 65.8% | 39.0% | 23.1% | 25.4% |
-| **V51.DD12** (exit-DD 12% guard) | **14.0%** | **34.0%** | **0.67** | **32.3%** | **29.9%** | **23.1%** | **29.0%** |
+| V50 (SPY 1×, regime only) | 7.7% | 30.1% | 0.68 | 30.1% | 18.6% | 14.4% | 10.7% |
+| V51 (SSO 2×, regime only) | 11.4% | 67.2% | 0.55 | 67.2% | 41.1% | 23.4% | 26.8% |
+| **V51.DD12** (exit-DD 12% guard) | **14.1%** | **35.7%** | **0.67** | **35.7%** | **31.2%** | **23.4%** | **29.6%** |
 
-2006–2026 (real SSO): V51.DD12 CAGR **22.9%**, MaxDD **33.6%**, GFC **18.1%**, COVID **23.9%**, 2022 **13.2%**.
+2006–2026 (real SSO): V51.DD12 CAGR **19.7%**, MaxDD **33.9%**, GFC **31.2%**, COVID **23.4%**, 2022 **29.6%**.
+V51.R 2006–26: CAGR **22.2%**, MaxDD **32.8%**. V51.SC 2006–26: CAGR **20.5%**, MaxDD **32.8%**.
 
 ---
 
-> **Fill model (2026-05-04, corrected):** Prior backtest figures used `clip()` to simulate limit fills — a critical bug: `clip(open, upper=limit)` magically fills at the limit even when the market gaps over it and never returns, an execution that cannot happen. The correct model uses intraday `low`/`high` to gate whether the limit was actually touched. Entries fill only if `low[T+1] ≤ limit`; exits fill only if `high[T+1] ≥ limit`. When unfilled (Condition C), the position is unchanged and a fresh limit is retried the next day. The backtest loop is now stateful (`actually_in_etf` flag) to track true fill state independently of the regime signal. All figures above use the corrected model.
+> **Backtest correctness (2026-05-04, two bugs fixed):**
+> 1. **clip() execution fantasy** — `clip(open, upper=limit)` magically filled at the limit even when the market gapped over it and never returned. Fixed: boolean masking on `low`/`high` gates fills; Condition C (unfilled) holds position and retries next day with a fresh limit.
+> 2. **is_exit one-day look-ahead** — the stateful loop built an `is_exit` set by checking `regime_ok[T+1]`, which the live runner cannot know at close of T. Exit was triggered one day early (at T+1 open instead of T+2 open). Fixed: `should_exit = not signal_in` only — exits trigger when T's own signal turns False, placing the sell order for T+1 open. Impact: ~3pp CAGR reduction in 2006–26 vs pre-fix figures (exits are now one day later in bear markets, which is correct behavior).
+
+---
+
+## Project Update — 2026-05-04 (Look-Ahead Bias Audit)
+
+Four vectors audited. One bug found and fixed; three confirmed clean.
+
+### Vector 1 — Signal exit timing (BUG FIXED)
+
+`compute_regime_spy_metrics` built an `is_exit` set using `regime_ok[T] AND NOT regime_ok[T+1]`.
+This peeks at the next day's signal: the live runner at T's close sees `regime_ok[T]=True` → no
+exit; only at T+1's close does it see `regime_ok[T+1]=False` → places sell order for T+2 open.
+The backtester was exiting at T+1 open (one day early), making all strategies 3–5pp CAGR optimistic
+in 2006–26.
+
+**Fix:** removed `is_exit` entirely; `should_exit = not signal_in` only. Exit fill at T+1 open
+after the live runner sees the signal turn False at T's close.
+
+**Regression guard:** `tests/test_lookahead_bias.py::TestExitTimingNoLookahead` —
+(1) behavioral test with 5-day synthetic dataset asserting correct (loss-taking) exit timing;
+(2) grep guard asserting no `is_exit` inside `compute_regime_spy_metrics`.
+
+### Vector 2 — Rolling windows (CLEAN)
+
+All indicators confirmed closed-right (no future data):
+- `sma()` → `prices.rolling(period).mean()` — standard closed-right window
+- `vix_minmax_rank` → `vix.rolling(252).apply(_rank, raw=True)` — closed-right
+- 252-day trailing DD → `spy_c.rolling(252, min_periods=1).max()` — closed-right
+- MACD(12,26,9) → causal EWM (`adjust=False`) — each value depends only on past observations
+
+**Regression guard:** 5 tests in `TestRollingWindowsNoLookahead` — drop-last-row test for each
+indicator, assert penultimate value is unchanged.
+
+### Vector 3 — Execution price (CLEAN)
+
+`executor/fill_logic.py` buy fills use only `open` and `low`; sell fills use only `open` and
+`high`. Changing `close` or `high` (for buys) / `low` (for sells) does not affect the fill
+decision. `close[T+1]` appears only in return calculation after the fill is determined.
+
+**Regression guard:** 6 tests in `TestFillDecisionNoLookahead` — independent-of-high/close for
+buys; independent-of-low/close for sells; Condition C for both sides.
+
+### Vector 4 — Live runner cron timing (CLEAN)
+
+Cron `20 16 * * 1-5` fires at 4:20 PM ET. Market closes 4:00 PM; VIX typically settles ~4:15 PM.
+The runner fetches VIX live at each execution, so no stale-cache risk for VIX.
+Caveat documented: `load_ohlcv_cached` for SPY/SSO could use yesterday's close if the cache
+is stale on the same calendar day — monitored but not yet a regression test.
+
+**Regression guard:** 4 tests in `TestCronTiming` — fire time > 16:00, ≥ 16:15, not pre-market,
+runner docstring confirms post-market timing.
 
 ---
 
@@ -43,9 +97,10 @@ All three layers — backtest engine, simulation runner, live IBKR runner — us
 | C — never touched | NaN — stay in cash, retry next day | NaN — stay long, retry next day |
 
 **Backtester fix (`compute_regime_spy_metrics` — `backtest/run.py`):**
-- Bug removed: `clip(open, upper/lower=limit)` replaced with proper boolean masking on `low`/`high`
+- Bug 1 removed: `clip(open, upper/lower=limit)` replaced with proper boolean masking on `low`/`high`
+- Bug 2 removed: `is_exit` look-ahead set removed; `should_exit = not signal_in` only
 - Stateful equity loop: `actually_in_etf` flag tracks true fill state; Condition C → position held, fresh limit next day
-- Impact on V51.DD12: CAGR 12.3% → **14.0%**, MaxDD 39.4% → **34.0%** (both improved — correct model avoids premium gap-up entries during bear bounces; V51 raw exposed: MaxDD 47.4% → 65.8%, revealing the execution fantasy clip() was hiding)
+- Impact on V51.DD12 (both fixes combined): 2000-26 CAGR 12.3% → **14.1%**, MaxDD 39.4% → **35.7%**; 2006-26 CAGR 22.9% → **19.7%** (more realistic — exits one day later matches live runner exactly)
 
 **Slippage audit:** every fill logs `signal_px / limit_price / avgFillPrice / slip_bp` to the order log. Simulation fills in `_simulate_pending_fills`; live fills in `IBKRExecutor.submit_order`.
 
@@ -76,14 +131,16 @@ A threshold between 6% and 9.6% cleanly separates slow-onset bears from fast-cra
 
 No N=10, no MA-cross guard. Guard condition: MACD(12,26,9) histogram > 0 AND DD < 8%.
 
+*(Numbers corrected 2026-05-04 after is_exit look-ahead fix — GFC/COVID/2022 columns from 2000–26 r2k run.)*
+
 | Threshold | Dot-com MaxDD | 2000–26 CAGR | 2000–26 MaxDD | 2006–26 CAGR | 2006–26 MaxDD | GFC | COVID | 2022 |
 |---|---|---|---|---|---|---|---|---|
-| V51.SC (baseline) | 41.0% | 13.1% | 48.9% | **25.6%** | 29.8% | 33.4% | 23.1% | 27.7% |
-| DD > 4% | 28.7% | 11.3% | 35.0% | 19.6% | 29.8% | 31.6% | 24.3% | 25.7% |
-| DD > 6% | 28.7% | 11.0% | 34.9% | 20.4% | 29.8% | 31.5% | 24.3% | 25.7% |
-| DD > 8% | **28.7%** | 10.7% | 37.5% | 20.3% | 32.1% | 34.2% | 24.0% | 27.7% |
-| DD > 10% | 33.2% | 10.8% | 37.5% | 21.3% | 30.5% | 34.2% | 23.1% | 26.9% |
-| **DD > 12% (V51.DD12)** | **32.4%** | **12.3%** | **39.4%** | **24.9%** | 33.3% | **32.0%** | 23.1% | 29.2% |
+| V51.SC (baseline) | 46.5% | 12.6% | 51.0% | **20.5%** | 32.8% | 31.2% | 23.4% | 26.8% |
+| DD > 4% | 31.1% | 11.6% | 35.4% | 15.5% | 38.1% | 33.9% | 23.4% | 27.1% |
+| DD > 6% | 31.1% | 11.4% | 35.9% | 15.6% | 38.2% | 34.5% | 23.4% | 27.1% |
+| DD > 8% | **31.1%** | 11.2% | 37.5% | 15.1% | 37.0% | 36.1% | 25.7% | 29.0% |
+| DD > 10% | 38.5% | 11.4% | 38.5% | 16.1% | 37.0% | 36.1% | 23.4% | 27.7% |
+| **DD > 12% (V51.DD12)** | **35.7%** | **14.1%** | **35.7%** | **19.7%** | 33.9% | **31.2%** | 23.4% | 29.6% |
 
 ### Key findings
 
@@ -92,17 +149,18 @@ the dot-com exit at −9.6%, arming the guard for both bear types. This causes t
 ~5–6pp CAGR drag as the universal MACD+DD guard (V51.A), with similar dot-com MaxDD of 28.7%.
 
 **DD > 8% is the clean discriminator.** Arms for dot-com (−9.6% > 8%) but not for GFC
-(−6.0% < 8%). Achieves the best possible dot-com protection (28.7% MaxDD) while leaving GFC
-handled naturally by the regime signal. Cost is still −5.3pp CAGR (25.6% → 20.3%) because
-normal corrections in the 2006–26 period sometimes exit with DD > 8%.
+(−6.0% < 8%). Achieves the best dot-com protection (31.1% MaxDD) while leaving GFC handled by
+the regime signal. Cost is still ~5pp 2006-26 CAGR vs baseline because normal corrections in
+2006–26 sometimes exit with DD > 8%.
 
 **DD > 12% (V51.DD12) is the most cost-efficient candidate.**
 The Oct 2000 exit at −9.6% falls *below* the 12% threshold, so no guard fires on the initial
 dot-com exit. The strategy re-enters once on a 2001 bear bounce. But the subsequent 2001–2002
 exits — by which point SPY has fallen much further (DD >20%) — arm the 12% guard and block
-all remaining 2001–2003 re-entries. This yields **32.4% dot-com MaxDD** (vs 41.0% baseline)
-at a cost of only **−0.7pp CAGR** (25.6% → 24.9%). GFC is also slightly *better* (32.0% vs
-33.4%) because some 2008 whipsaw re-entry/exit cycles also arm the guard.
+all remaining 2001–2003 re-entries. This yields **35.7% dot-com MaxDD** (vs 46.5% baseline)
+at a cost of only **−0.8pp 2006-26 CAGR** (20.5% → 19.7%). 2000–26 MaxDD is actually
+*better* than the V51.SC baseline (35.7% vs 51.0%) because the guard eliminates the N=10
+false overrides.
 
 ### V51.DD12 full profile
 
@@ -110,19 +168,23 @@ at a cost of only **−0.7pp CAGR** (25.6% → 24.9%). GFC is also slightly *bet
 (no N=10 forced exit, no MA-cross guard). Reopen guard: MACD(12,26,9) histogram > 0
 AND trailing DD from 252-day high < 8%.
 
+*(Numbers post-2026-05-04 is_exit fix.)*
+
 | Metric | V51.SC | **V51.DD12** | Delta |
 |---|---|---|---|
-| 2006–26 CAGR | 25.6% | **24.9%** | −0.7pp |
-| 2006–26 MaxDD | 29.8% | 33.3% | +3.5pp |
-| 2000–26 MaxDD | 48.9% | **39.4%** | −9.5pp |
-| Dot-com MaxDD | 41.0% | **32.4%** | −8.6pp |
-| GFC MaxDD | 33.4% | **32.0%** | −1.4pp |
-| COVID MaxDD | 23.1% | 23.1% | 0 |
-| 2022 MaxDD | 27.7% | 29.2% | +1.5pp |
+| 2006–26 CAGR | 20.5% | **19.7%** | −0.8pp |
+| 2006–26 MaxDD | 32.8% | 33.9% | +1.1pp |
+| 2000–26 CAGR | 12.6% | **14.1%** | +1.5pp |
+| 2000–26 MaxDD | 51.0% | **35.7%** | −15.3pp |
+| Dot-com MaxDD | 46.5% | **35.7%** | −10.8pp |
+| GFC MaxDD (2000–26) | 31.2% | 31.2% | 0 |
+| COVID MaxDD | 23.4% | 23.4% | 0 |
+| 2022 MaxDD | 26.8% | 29.6% | +2.8pp |
 
 **Mechanism nuance:** V51.DD12 allows one additional re-entry into the 2001 bear before the
-guard arms. This is structurally different from V51.SC's N=10 path, which forces exit before
-the 2001 re-entry but relies on the MA-cross guard to prevent further bounces (and produces
+guard arms (Oct 2000 exit at −9.6% misses the 12% threshold). This is structurally different
+from V51.SC's N=10 path, which forces exit before the 2001 re-entry but relies on the MA-cross
+guard to prevent further bounces (and produces
 the 2019-02-04 false override as a side effect — no false overrides in V51.DD12 since there's
 no N=10 counter).
 
