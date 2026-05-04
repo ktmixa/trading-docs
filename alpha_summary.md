@@ -6,6 +6,102 @@
 
 ---
 
+## Project Update — 2026-05-04 (V51.SC diagnostic: four stress tests)
+
+### Q1 — COVID-19 V-Bottom: did the N=10 override trigger?
+
+**No.** VIX rank₂₅₂ hit **100%** on the very first day of regime close (February 27, 2020 —
+SPY was at the absolute top of its trailing 252-day VIX range). The VIX gate fired immediately.
+The N=10 sustained-close override and two-phase MA-cross guard were never activated.
+
+```
+2020-02-27  vix_exit        VIX_rank=100%   SPY=$271.88
+2020-05-20  fast_reentry    (re-enter as soon as regime reopens)  SSO=$14.08
+```
+
+V51.SC and V51.R are **identical** for the COVID episode — same exit (Feb 27), same re-entry
+(May 20), zero CAGR drag from the guard. The two-phase guard only activates on forced exits
+(N=10 triggered), not on VIX-driven exits. COVID was a VIX-driven exit.
+
+### Q2 — False overrides: 2006–2026 forced exits
+
+Three N=10 forced exits occurred in the 2006–2026 window:
+
+| Date | VIX rank | Context | Verdict |
+|---|---|---|---|
+| 2008-05-28 | 32.3% | GFC — brief market bounce (May 2008) with calm VIX | **Correct** — bear continued |
+| 2015-11-27 | 11.2% | 2015–16 China/oil selloff | **Borderline** — VIX near 252-day min; market fell more before recovering |
+| 2019-02-04 | 18.4% | Q4 2018 recovery phase | **False override** — bear was ending; forced exit delayed re-entry into 2019 rally |
+
+The 2019 false override is the most costly: the forced exit fired during the recovery from the
+Q4 2018 selloff (when SPY had already recovered above SMA100 but regime briefly closed again).
+The two-phase guard then held the strategy in cash until the SMA100 > SMA200 golden cross —
+costing participation in part of the 2019 bull market. This is the primary CAGR drag from the
+guard in the 2006–26 window (−1.9pp vs V51.R on 2006–26 CAGR: 25.5% vs 27.4%).
+
+### Q3 — Phase 1 decay: days holding SSO in a declining market
+
+The table below shows how long the strategy holds SSO at 2× leverage after each major peak,
+until it exits. The exposure window ends at the exit (VIX-triggered or N=10 forced).
+
+| Bear | SPY peak | Exit date | Exit type | Bdays exposed | SPY peak→exit |
+|---|---|---|---|---|---|
+| Dot-com | 2000-03-24 | 2000-10-16 | vix_exit | **146 bdays** (~7 months) | −9.6% |
+| GFC | 2007-10-09 | 2007-11-08 | vix_exit | **22 bdays** | −6.0% |
+| COVID | 2020-02-19 | 2020-02-27 | vix_exit | **6 bdays** | −12.1% |
+| 2022 | 2022-01-03 | 2022-01-21 | vix_exit | **14 bdays** | −8.3% |
+
+**Dot-com stands out: 146 business days (~7 months) of 2× leverage exposure during a
+declining market.** VIX was falling while the market dipped slowly below SMA200 (September 21,
+2000), and the regime signal oscillated near the SMA100 reopen threshold — resetting the N=10
+counter repeatedly before VIX finally crossed 40% on October 16. The N=10 override did not fire
+for the initial dot-com close because the regime signal kept briefly reopening (resetting the
+suppressed counter) before any continuous 10-day run completed.
+
+GFC, COVID, and 2022 are all well-contained: VIX spiked immediately, firing the gate within
+days of the regime close.
+
+**Phase 1 timing after forced exits (strategy is in CASH during this period):**
+
+| Forced exit | Phase 1 (SMA100 < SMA200) | Days in cash waiting | SPY during wait |
+|---|---|---|---|
+| 2001-02-16 | 2001-02-20 | 2 bd | −1.5% |
+| 2002-05-01 | 2002-06-10 | 28 bd | −5.0% |
+| 2008-05-28 | 2008-05-29 | 1 bd | +0.5% |
+| 2015-11-27 | 2015-11-30 | 1 bd | −0.4% |
+| 2019-02-04 | 2019-02-05 | 1 bd | +0.4% |
+
+Phase 1 confirmation is almost instant in most cases — the death cross (SMA100 < SMA200) already
+occurred or was imminent at the time of forced exit. The expensive part is Phase 2: waiting for
+SMA100 to cross back above SMA200 after Phase 1. That wait can be months (e.g., after the
+2001-02-16 forced exit, the SMA100 > SMA200 golden cross didn't complete until ~2003).
+
+### Q4 — Phase 2 MA sensitivity: SMA50 vs SMA100 as Phase 2 signal
+
+Phase 1 is fixed at SMA100 < SMA200 (death cross confirmation) in all variants.
+Phase 2 varies (the recovery cross that triggers re-entry after a forced exit):
+
+| Phase 2 MA | 2000–26 CAGR | 2000–26 MaxDD | Dot-com DD | GFC DD | 2006–26 CAGR | 2006–26 MaxDD |
+|---|---|---|---|---|---|---|
+| SMA20 > SMA200 | 13.0% | 48.9% | 44.3% | 36.9% | 25.6% | 29.8% |
+| **SMA50 > SMA200** | **13.1%** | **48.9%** | **41.0%** | **33.4%** | **25.6%** | **29.8%** |
+| SMA100 > SMA200 (current) | 12.2% | 48.9% | 45.6% | 29.2% | 25.5% | 29.8% |
+
+**Faster Phase 2 (SMA50) reduces dot-com MaxDD by −4.6pp (41.0% vs 45.6%) and increases 2000–26
+CAGR by +0.9pp.** The tradeoff is a +4.2pp worse GFC MaxDD (33.4% vs 29.2%), because SMA50
+crosses SMA200 sooner during the 2009 recovery, triggering re-entry slightly earlier into what
+was still a volatile GFC bear.
+
+**Does SMA50 reintroduce dot-com whipsaws?** No — dot-com DD actually *improves* with SMA50.
+Phase 1 (SMA100 < SMA200) must complete before Phase 2 even starts, so the whipsaw protection
+in Phase 1 is preserved regardless of Phase 2 speed.
+
+**Summary:** SMA50 as Phase 2 is a modest improvement — slightly better dot-com profile,
+slightly worse GFC profile, nearly identical 2006–26 CAGR. Neither choice is dominant.
+Current design (SMA100) is more conservative; SMA50 is a reasonable alternative.
+
+---
+
 ## Project Update — 2026-05-04 (V51.SC: two-phase MA-cross reopen guard)
 
 ### Motivation
