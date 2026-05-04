@@ -8,27 +8,25 @@
 
 ![V51.DD12 Headline](chart_headline.png)
 
-| Strategy | CAGR | MaxDD | Sharpe |
-|---|---|---|---|
-| SPY B&H | 8.2% | 55.2% | 0.53 |
-| QQQ B&H | 8.4% | 83.0% | 0.46 |
-| V50 (SPY 1×, regime only) | 9.5% | 31.6% | 0.86 |
-| V51 (SSO 2×, regime only) | 12.7% | 47.4% | 0.62 |
-| **V51.DD12** (exit-DD 12% guard) | **12.3%** | **39.4%** | **0.62** |
+| Strategy | CAGR | MaxDD | Sharpe | Dot-com | GFC | COVID | 2022 |
+|---|---|---|---|---|---|---|---|
+| SPY B&H | 8.2% | 55.2% | 0.53 | 47.5% | 55.2% | 33.7% | 24.5% |
+| QQQ B&H | 8.4% | 83.0% | 0.46 | 83.0% | 77.8% | 28.6% | 35.1% |
+| V50 (SPY 1×, regime only) | 9.6% | 30.0% | 0.85 | 30.0% | 13.8% | 8.9% | 7.1% |
+| V51 (SSO 2×, regime only) | 11.9% | 65.8% | 0.57 | 65.8% | 39.0% | 23.1% | 25.4% |
+| **V51.DD12** (exit-DD 12% guard) | **14.0%** | **34.0%** | **0.67** | **32.3%** | **29.9%** | **23.1%** | **29.0%** |
 
-V51.DD12 matches V51's Sharpe (0.62) while cutting MaxDD by 8pp (39.4% vs 47.4%) and
-eliminating the 2001–2003 re-entry problem that makes raw V51 impractical. Full research
-history below; chart script at `backtest/chart_headline.py`.
+2006–2026 (real SSO): V51.DD12 CAGR **22.9%**, MaxDD **33.6%**, GFC **18.1%**, COVID **23.9%**, 2022 **13.2%**.
 
 ---
 
-> **Fill model (2026-05-04, final):** All V51 backtest figures use the **Marketable Limit** model. `compute_regime_spy_metrics` now applies `fill_limit_pct=0.01`: entry fills at `min(open[T+1], close[T]×1.01)`, exit fills at `max(open[T+1], close[T]×0.99)`. The live runner (`runner_eod_v51r.py`) constructs the identical limit prices and submits them to IBKR as `LMT / DAY / outsideRth=False` orders via `IBKRExecutor`. Both paths log `limit_price` and `avgFillPrice` for post-trade slippage audit. V51.DD12 metrics are unchanged at this precision (gap events on signal days too rare to shift CAGR/MaxDD to 1dp for a weekly-turnover strategy).
+> **Fill model (2026-05-04, corrected):** Prior backtest figures used `clip()` to simulate limit fills — a critical bug: `clip(open, upper=limit)` magically fills at the limit even when the market gaps over it and never returns, an execution that cannot happen. The correct model uses intraday `low`/`high` to gate whether the limit was actually touched. Entries fill only if `low[T+1] ≤ limit`; exits fill only if `high[T+1] ≥ limit`. When unfilled (Condition C), the position is unchanged and a fresh limit is retried the next day. The backtest loop is now stateful (`actually_in_etf` flag) to track true fill state independently of the regime signal. All figures above use the corrected model.
 
 ---
 
-## Project Update — 2026-05-04 (Execution Sync: Marketable Limit)
+## Project Update — 2026-05-04 (Execution Sync: Marketable Limit + fill model correction)
 
-All three layers — backtest engine, simulation runner, live IBKR runner — now use identical fill logic.
+All three layers — backtest engine, simulation runner, live IBKR runner — use the identical Marketable Limit fill model.
 
 **Order construction (live runner):**
 - Buy: `limit_price = round(sso_close × 1.01, 2)` — accepts fills up to 1% above prior close
@@ -40,18 +38,16 @@ All three layers — backtest engine, simulation runner, live IBKR runner — no
 
 | Condition | Entry (buy) | Exit (sell) |
 |---|---|---|
-| A — open within buffer | open ≤ limit → fill at open | open ≥ limit → fill at open |
-| B — intraday touch | low ≤ limit → fill at limit | high ≥ limit → fill at limit |
-| C — never touched | order expires unfilled | order expires unfilled |
+| A — open within buffer | `open ≤ limit` → fill at open | `open ≥ limit` → fill at open |
+| B — intraday touch | `low ≤ limit` → fill at limit | `high ≥ limit` → fill at limit |
+| C — never touched | NaN — stay in cash, retry next day | NaN — stay long, retry next day |
 
-Condition C is negligible for SSO (liquid, high-volume ETF; intraday ranges routinely exceed 1%).
+**Backtester fix (`compute_regime_spy_metrics` — `backtest/run.py`):**
+- Bug removed: `clip(open, upper/lower=limit)` replaced with proper boolean masking on `low`/`high`
+- Stateful equity loop: `actually_in_etf` flag tracks true fill state; Condition C → position held, fresh limit next day
+- Impact on V51.DD12: CAGR 12.3% → **14.0%**, MaxDD 39.4% → **34.0%** (both improved — correct model avoids premium gap-up entries during bear bounces; V51 raw exposed: MaxDD 47.4% → 65.8%, revealing the execution fantasy clip() was hiding)
 
-**Slippage audit:** every fill logs `signal_px / limit_price / avgFillPrice / slip_bp` to the order log. For simulation fills this runs in `_simulate_pending_fills`; for live fills it runs in `IBKRExecutor.submit_order`.
-
-**Backtest sync (`compute_regime_spy_metrics`):**
-- New parameter `fill_limit_pct=0.01` (default)
-- Vectorised: `entry_fill = clip(open[T+1], upper=close[T]×1.01)`, `exit_fill = clip(open[T+1], lower=close[T]×0.99)`
-- All `run_2state` calls pass this value; existing results unchanged at 1dp
+**Slippage audit:** every fill logs `signal_px / limit_price / avgFillPrice / slip_bp` to the order log. Simulation fills in `_simulate_pending_fills`; live fills in `IBKRExecutor.submit_order`.
 
 ---
 
