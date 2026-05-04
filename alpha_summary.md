@@ -6,6 +6,90 @@
 
 ---
 
+## Project Update — 2026-05-04 (Exit-DD Threshold Guard: V51.DD12)
+
+### Concept
+
+All previous guard mechanisms (N=10 forced exit, two-phase MA-cross, MACD+DD universal) apply
+their re-entry restrictions either too broadly (hurting normal-market CAGR) or too narrowly
+(only after forced N=10 exits, which never fire in the dot-com scenario). The exit-DD threshold
+guard takes a different approach: **classify each exit by how deep the drawdown was at the
+moment of exit**, then apply the strict MACD+DD reopen guard only for exits that were already
+deep. Shallow exits (minor corrections, fast crashes) keep fast re-entry.
+
+**Logic:**
+- On any exit (VIX or forced): measure trailing DD from 252-day high at exit date
+- If `DD at exit > threshold`: arm the reopen guard (MACD histogram > 0 AND DD < 8%)
+- If `DD at exit ≤ threshold`: fast re-entry as normal (no guard)
+
+The key discriminating fact: the GFC initial VIX exit on **2007-11-08 had DD = −6.0%**
+(VIX spiked early before SPY fell far), while the dot-com VIX exit on **2000-10-16 had
+DD = −9.6%** (VIX was calm for months, so exit only happened after a large decline).
+A threshold between 6% and 9.6% cleanly separates slow-onset bears from fast-crash recoveries.
+
+### Sweep results
+
+No N=10, no MA-cross guard. Guard condition: MACD(12,26,9) histogram > 0 AND DD < 8%.
+
+| Threshold | Dot-com MaxDD | 2000–26 CAGR | 2000–26 MaxDD | 2006–26 CAGR | 2006–26 MaxDD | GFC | COVID | 2022 |
+|---|---|---|---|---|---|---|---|---|
+| V51.SC (baseline) | 41.0% | 13.1% | 48.9% | **25.6%** | 29.8% | 33.4% | 23.1% | 27.7% |
+| DD > 4% | 28.7% | 11.3% | 35.0% | 19.6% | 29.8% | 31.6% | 24.3% | 25.7% |
+| DD > 6% | 28.7% | 11.0% | 34.9% | 20.4% | 29.8% | 31.5% | 24.3% | 25.7% |
+| DD > 8% | **28.7%** | 10.7% | 37.5% | 20.3% | 32.1% | 34.2% | 24.0% | 27.7% |
+| DD > 10% | 33.2% | 10.8% | 37.5% | 21.3% | 30.5% | 34.2% | 23.1% | 26.9% |
+| **DD > 12% (V51.DD12)** | **32.4%** | **12.3%** | **39.4%** | **24.9%** | 33.3% | **32.0%** | 23.1% | 29.2% |
+
+### Key findings
+
+**DD > 4% and DD > 6% are functionally identical** — both catch the GFC exit at −6.0% AND
+the dot-com exit at −9.6%, arming the guard for both bear types. This causes the same
+~5–6pp CAGR drag as the universal MACD+DD guard (V51.A), with similar dot-com MaxDD of 28.7%.
+
+**DD > 8% is the clean discriminator.** Arms for dot-com (−9.6% > 8%) but not for GFC
+(−6.0% < 8%). Achieves the best possible dot-com protection (28.7% MaxDD) while leaving GFC
+handled naturally by the regime signal. Cost is still −5.3pp CAGR (25.6% → 20.3%) because
+normal corrections in the 2006–26 period sometimes exit with DD > 8%.
+
+**DD > 12% (V51.DD12) is the most cost-efficient candidate.**
+The Oct 2000 exit at −9.6% falls *below* the 12% threshold, so no guard fires on the initial
+dot-com exit. The strategy re-enters once on a 2001 bear bounce. But the subsequent 2001–2002
+exits — by which point SPY has fallen much further (DD >20%) — arm the 12% guard and block
+all remaining 2001–2003 re-entries. This yields **32.4% dot-com MaxDD** (vs 41.0% baseline)
+at a cost of only **−0.7pp CAGR** (25.6% → 24.9%). GFC is also slightly *better* (32.0% vs
+33.4%) because some 2008 whipsaw re-entry/exit cycles also arm the guard.
+
+### V51.DD12 full profile
+
+**Definition:** V51.R gate (VIX rank ≥ 40% exit) + exit-DD threshold guard at 12%
+(no N=10 forced exit, no MA-cross guard). Reopen guard: MACD(12,26,9) histogram > 0
+AND trailing DD from 252-day high < 8%.
+
+| Metric | V51.SC | **V51.DD12** | Delta |
+|---|---|---|---|
+| 2006–26 CAGR | 25.6% | **24.9%** | −0.7pp |
+| 2006–26 MaxDD | 29.8% | 33.3% | +3.5pp |
+| 2000–26 MaxDD | 48.9% | **39.4%** | −9.5pp |
+| Dot-com MaxDD | 41.0% | **32.4%** | −8.6pp |
+| GFC MaxDD | 33.4% | **32.0%** | −1.4pp |
+| COVID MaxDD | 23.1% | 23.1% | 0 |
+| 2022 MaxDD | 27.7% | 29.2% | +1.5pp |
+
+**Mechanism nuance:** V51.DD12 allows one additional re-entry into the 2001 bear before the
+guard arms. This is structurally different from V51.SC's N=10 path, which forces exit before
+the 2001 re-entry but relies on the MA-cross guard to prevent further bounces (and produces
+the 2019-02-04 false override as a side effect — no false overrides in V51.DD12 since there's
+no N=10 counter).
+
+**Trade-offs vs V51.SC:**
+- Wins: dot-com (−8.6pp MaxDD), GFC (−1.4pp), 2000-26 tail risk (−9.5pp MaxDD overall)
+- Costs: 2006-26 MaxDD (+3.5pp), 2022 (+1.5pp), CAGR (−0.7pp)
+- No false overrides (N=10 counter removed entirely)
+
+**Status:** Named candidate. Not yet deployed. Pending further validation.
+
+---
+
 ## Project Update — 2026-05-04 (Asymmetric Gate: V51.A and V51.AC)
 
 ### Motivation

@@ -1,6 +1,6 @@
 ---
 name: MixA System Overview
-description: MixA active trading algo — architecture, champion V51.SC (research), live still on V51.R, full variant research history through dual-factor gate sweep
+description: MixA active trading algo — architecture, new candidate V51.DD12, prior champion V51.SC, live on V51.R, full variant history through exit-DD threshold guard research
 type: project
 originSessionId: f4051d13-ab5d-4c00-9d90-4303e7d654b1
 ---
@@ -12,19 +12,28 @@ Venv: `/home/brewadmin/projects/trading/mixa/venv/`. $100k simulation capital.
 - Live runner has MAX_SUPPRESSED_DAYS=10 (V51.S logic) already wired in
 - IBKR not yet connected; IBKRExecutor has known bugs
 
-**Research champion: V51.SC** (not yet deployed — pending decision)
+**New research candidate: V51.DD12** (not yet deployed — pending decision)
+- V51.R gate + exit-DD threshold guard at 12% (no N=10, no MA-cross guard)
+- On any exit where trailing DD from 252-day high > 12%: arm reopen guard
+- Reopen guard: MACD(12,26,9) histogram > 0 AND DD < 8% (both simultaneously)
+- Shallow exits (DD ≤ 12%): fast re-entry preserved
+- Backtest 2006–26 (real SSO): CAGR 24.9%, MaxDD 33.3%
+- Backtest 2000–26 (synthetic SSO): CAGR 12.3%, MaxDD 39.4%, Dot-com MaxDD 32.4%
+- vs V51.SC: −0.7pp CAGR, −8.6pp dot-com MaxDD, −1.4pp GFC MaxDD, no false overrides
+
+**Prior research champion: V51.SC** (superseded by V51.DD12 as candidate)
 - V51.R + N=10 sustained-close override + two-phase MA-cross reopen guard (SMA50 Phase 2)
 - Backtest 2006–26 (real SSO): CAGR 25.6%, MaxDD 29.8%
 - Backtest 2000–26 (synthetic SSO): CAGR 13.1%, MaxDD 48.9%, Dot-com MaxDD 41.0%
-- Cost vs V51.R: −1.9pp CAGR (2006–26). Benefit: halves tail-risk in slow-onset bears.
 
 **Full variant progression (2000–2026, synthetic SSO):**
-| Variant | CAGR | Sharpe | MaxDD | Dot-com | GFC |
+| Variant | CAGR | MaxDD | Dot-com | GFC | 2006-26 CAGR |
 |---|---|---|---|---|---|
-| V50 (SPY 1×, regime only) | 9.5% | 0.86 | 31.6% | 31.6% | 13.3% |
-| V51 (SSO 2×, regime only) | 12.7% | 0.62 | 47.4% | 42.8% | 32.9% |
-| V51.R (+ VIX gate) | 10.8% | 0.53 | 74.4% | 74.4% | 60.9% |
-| V51.SC (+ N=10 + MA-cross, SMA50 P2) | 13.1% | — | 48.9% | 41.0% | — |
+| V50 (SPY 1×, regime only) | 9.5% | 31.6% | 31.6% | 13.3% | — |
+| V51 (SSO 2×, regime only) | 12.7% | 47.4% | 42.8% | 32.9% | — |
+| V51.R (+ VIX gate) | 10.8% | 74.4% | 74.4% | 60.9% | 27.4% |
+| V51.SC (+ N=10 + MA-cross) | 13.1% | 48.9% | 41.0% | 33.4% | 25.6% |
+| **V51.DD12 (+ exit-DD guard 12%)** | **12.3%** | **39.4%** | **32.4%** | **32.0%** | **24.9%** |
 
 Key insight: V51 (raw regime, no VIX gate) beats V51.R on every metric. VIX gate solved
 a minor whipsaw problem but introduced catastrophic slow-bear suppression.
@@ -74,12 +83,16 @@ the exit was a VIX exit, not N=10 forced. Dot-com MaxDD 39.1% (1.9pp gain), CAGR
 Root cause confirmed: dot-com 2001–2003 re-entry protection requires guarding ALL exits, not
 just forced ones. Guard must be universal or conditional on DD-at-exit depth.
 
+**Exit-DD threshold guard sweep (2026-05-04) — V51.DD12 adopted as candidate:**
+GFC first exit DD = −6.0% (Nov 2007); dot-com exit DD = −9.6% (Oct 2000).
+Threshold 8%: arms for dot-com, not GFC → 28.7% dot-com MaxDD but −5.3pp CAGR.
+Threshold 12%: doesn't arm on initial dot-com exit (-9.6% < 12%), but arms on deeper
+2001-2002 exits → 32.4% dot-com MaxDD at only −0.7pp CAGR cost. GFC also improves.
+V51.DD12 selected: best cost-efficiency seen across all guard research.
+
 **Open research directions:**
-1. Exit-DD threshold guard: apply MACD+DD reopen only when DD at exit > threshold (8–12%)
-   — catches slow-onset bear exits (Oct 2000: −9.6%) while allowing fast re-entry after
-   shallow corrections (2011, 2015-16, 2018 Q4 where exit DD was small)
-2. Extend two-phase MA-cross guard to ALL exits with Phase 1 timeout (N days to confirm
-   death cross; if not confirmed, fall back to fast re-entry — avoids cash lock in shallow bears)
+1. V51.DD12 live runner deployment: update runner_eod_v51r.py with exit-DD threshold guard
+2. Combine V51.DD12 with N=10 to close the one-re-entry gap in dot-com 2001
 3. Absolute VIX level trigger (VIX > 25 forces close regardless of regime state)
 
 **Architecture:**
