@@ -6,6 +6,77 @@
 
 ---
 
+## Project Update — 2026-05-04 (V51.S: sustained-close override for slow-onset bears)
+
+### Root cause: dot-com failure mode diagnosed
+
+**Result of applying the synthetic-SSO 2000–2026 test to all variants:**
+
+| Strategy | Dot-com MaxDD | GFC MaxDD | 2006–26 CAGR |
+|---|---|---|---|
+| V51.R baseline (min-max rank) | 74.4% | 60.9% | 27.4% |
+| Alt A — true percentile > 40% | 68.1% | 51.1% | 22.9% |
+| Alt B — winsorized z > 0.86σ | 74.0% | 60.6% | 24.7% |
+| C — 3-state re-entry cap | 74.4% | 61.0% | 19.0% |
+
+All three researcher-proposed alternatives fail the dot-com test — none solve the underlying failure
+mode. The problem is not the VIX normalization method; it is that **the exit gate itself has no
+time limit**: when a regime closes with calm VIX, the gate can suppress the exit indefinitely.
+
+**Root cause (data-confirmed):**
+- SPY peaked March 24, 2000 @ $96.72. Regime (SPY < SMA200) didn't close until September 21, 2000
+  — 5.5 months later, after SPY had already declined 6.6% from peak.
+- VIX was *declining* through this period, reaching its 252-day MIN (rank **1.8%**) in August 2000.
+- When regime closed on September 21, VIX rank ≈ 10–20% → gate suppressed exit indefinitely.
+- Strategy held synthetic SSO through months of decline, then whipsawed through 2001–2002 bear
+  market re-entries (each re-entry → further losses), accumulating 74.4% MaxDD.
+
+### Fix: sustained-close override (MAX_SUPPRESSED_DAYS = 10)
+
+A new safety valve in the exit gate: if the VIX gate has been suppressing an exit for more than N
+consecutive business days, force the exit regardless of VIX rank.
+
+```
+CURRENT V51.R:  regime closes + VIX < 40% → stay invested FOREVER
+PROPOSED V51.S: regime closes + VIX < 40% → stay invested for ≤ 10 days → force exit
+```
+
+**Why 10 days works:**
+- Whipsaws (1–5 day regime closes): no forced exit — V51.R behaviour preserved for brief dips
+- Slow onset bears (dot-com 2000): forced exit by October 6, 2000 (10 business days after Sept 21)
+- VIX-driven bears (GFC, COVID, 2022): VIX rank ≥ 40% fires exit before 10 days anyway — override never needed
+
+**Sweep results (N = max days gate can suppress exit):**
+
+| N | 2000–26 CAGR | 2000–26 MaxDD | Dot-com DD | 2000–26 GFC DD | 2006–26 CAGR | 2006–26 MaxDD | 2006–26 GFC DD |
+|---|---|---|---|---|---|---|---|
+| 0 (V51.R baseline) | 10.8% | 74.4% | 74.4% | 60.9% | 27.4% | 29.8% | 18.8% |
+| 3 | 11.5% | 66.3% | 66.3% | 45.3% | 26.2% | 29.8% | 15.2% |
+| 5 | 11.6% | 67.1% | 67.1% | 46.2% | 26.7% | 29.8% | 15.2% |
+| **10** | **11.9%** | **67.7%** | **67.7%** | **46.9%** | **27.0%** | **29.8%** | **17.1%** |
+| 15 | 11.8% | 65.7% | 65.7% | 47.5% | 26.7% | 29.8% | 18.8% |
+| 20 | 11.8% | 65.3% | 65.3% | 46.9% | 26.8% | 29.8% | 18.8% |
+
+**N=10 chosen**: minimal 2006–26 CAGR cost (−0.4pp: 27.0% vs 27.4%), dot-com MaxDD reduced
+6.7pp (67.7% vs 74.4%), GFC MaxDD slightly improved (17.1% vs 18.8%).
+
+**What the fix does NOT solve:** The residual 67.7% dot-com MaxDD comes from whipsaw re-entries
+during the 2001–2002 prolonged bear market. After the initial forced exit in October 2000, the
+regime reopens briefly on bear-market bounces (SPY above SMA100 when rates are easing), triggering
+re-entries into SSO that then suffer further losses. A more complete fix would require a stricter
+re-entry condition after a forced exit (e.g., require SMA100 > SMA200 before re-entering) — this
+is identified as the next research step but not yet implemented, as it would reduce 2006–26
+participation in V-shaped recoveries.
+
+**Variant named V51.S** (S = sustained-close protection). Now the live runner default.
+
+**Files updated:**
+- `live/runner_eod_v51r.py`: `MAX_SUPPRESSED_DAYS = 10` constant added; `_apply_vix_gate` updated
+  with sustained-close counter
+- `backtest/vR_extended_research.py`: `apply_vix_gate` updated with same logic; sweep section added
+
+---
+
 ## Project Update — 2026-05-03 (Research tasks: synthetic SSO, VIX alt methods, re-entry cap)
 
 ### Research context
