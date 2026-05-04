@@ -4,25 +4,25 @@
 
 ---
 
-## Performance Summary — V51.DD12 vs Benchmarks (2000–2026, synthetic SSO)
+## Performance Summary — V51.DD12 Headline (2000–2026, synthetic SSO pre-2006)
 
-![V51.DD12 vs Benchmarks](chart_v51dd12.png)
+![V51.DD12 Headline](chart_headline.png)
 
 | Strategy | CAGR | MaxDD | Sharpe |
 |---|---|---|---|
 | SPY B&H | 8.2% | 55.2% | 0.53 |
 | QQQ B&H | 8.4% | 83.0% | 0.46 |
-| SSO B&H (synthetic 2×) | 9.1% | 88.2% | 0.43 |
-| V51 (SSO 2× regime only, no VIX gate) | 12.7% | 47.4% | 0.62 |
+| V50 (SPY 1×, regime only) | 9.5% | 31.6% | 0.86 |
+| V51 (SSO 2×, regime only) | 12.7% | 47.4% | 0.62 |
 | **V51.DD12** (exit-DD 12% guard) | **12.3%** | **39.4%** | **0.62** |
 
 V51.DD12 matches V51's Sharpe (0.62) while cutting MaxDD by 8pp (39.4% vs 47.4%) and
 eliminating the 2001–2003 re-entry problem that makes raw V51 impractical. Full research
-history below; chart script at `backtest/chart_v51dd12.py`.
+history below; chart script at `backtest/chart_headline.py`.
 
 ---
 
-> **Fill model note (2026-04-26):** All figures from this date forward use the **standard limit order** fill model — orders placed pre-market at signal_px (prior close); fill at open if open ≤ limit, fill at limit if price touches intraday, unfilled otherwise. The previous "gap-skip" rule (reject buys that open >1% above limit) has been removed — it modelled a human watching the open, which does not apply to pre-market limit orders. This lowers all historical CAGR figures by ~50bp vs prior summaries; the fill model is now correct.
+> **Fill model note (2026-05-04):** All figures use the **Marketable Limit** execution model — orders placed pre-market with a 1% gap-tolerance buffer: buy limit = signal_px × 1.01, sell limit = signal_px × 0.99. Fill logic: open within buffer → fill at open [A]; open beyond buffer but intraday touch → fill at limit [B]; no touch → unfilled [C]. Backtester (`executor/fill_logic.py`) and live runner (`live/runner_eod_v51r.py`) are synchronized on this convention. Prior note (2026-04-26) removed the gap-skip rule; this update adds the 1% buffer so the limit is marketable rather than exact-close.
 
 ---
 
