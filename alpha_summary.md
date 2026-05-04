@@ -6,6 +6,85 @@
 
 ---
 
+## Project Update — 2026-05-04 (Rolling Density Override: boiling-frog fix attempt)
+
+### Hypothesis
+
+The N=10 consecutive counter in V51.SC resets whenever the raw regime signal briefly reopens
+(1-day SPY bounce above SMA100). A rolling density check — "X regime-closed days out of a
+Y-day window" — is immune to brief bounces and should exit sooner during the dot-com slow-onset
+bear, reducing the 146-day exposure.
+
+### Deliverables table
+
+| Variant | Dotcom exp (bd) | Dot-com MaxDD | 2000–26 CAGR | 2000–26 MaxDD | 2006–26 CAGR | 2006–26 MaxDD | Forced exits 2006–26 |
+|---|---|---|---|---|---|---|---|
+| V51.SC baseline (N=10 consec, SMA100) | **146 bd** | 45.6% | 12.2% | 48.9% | **25.5%** | 29.8% | 3 |
+| RD 10/15 + SMA50 Phase 2 | **146 bd** | 34.6% | 8.2% | 49.0% | 17.4% | 29.8% | 7 |
+| RD 12/15 + SMA50 Phase 2 | **146 bd** | 34.6% | 10.6% | 49.0% | 21.2% | 29.8% | 7 |
+| RD 14/20 + SMA50 Phase 2 | **146 bd** | 34.6% | 8.1% | 49.0% | 17.3% | 29.8% | 7 |
+| RD 18/25 + SMA50 Phase 2 | **146 bd** | 34.6% | 8.1% | 49.0% | 17.5% | 29.8% | 7 |
+
+### Key finding: the boiling-frog is upstream of the gate
+
+**The rolling density does not reduce the 146-day dot-com exposure.** All variants — including
+10-out-of-15 — still show 146 business days from the March 24, 2000 peak to the first exit.
+
+Root cause: **the regime was genuinely OPEN for ~128 of those 146 days.** SPY stayed above
+SMA200 from March 24 all the way to September 21, 2000 — 5.5 months of slow decline while the
+regime gate saw nothing wrong. The gate (consecutive OR rolling density) can only act once the
+regime is closed. During those 128 days, neither mechanism has any ability to intervene.
+
+The final 18 days (September 21 → October 16, 2000) involved VIX gate suppression — but VIX
+rank crossed 40% on October 16 before any rolling window accumulated the required density count.
+Brief regime bounces during that window prevented the density from reaching threshold.
+
+```
+Dot-com exposure breakdown:
+  March 24 → September 21  (~128 bdays): regime OPEN — gate cannot act at all
+  September 21 → October 16 (~18 bdays): regime closed + VIX gate suppressing
+                                          VIX rank crosses 40% → vix_exit fires
+                              Total: 146 bdays all variants
+```
+
+### Why dot-com MaxDD still improves (34.6% vs 45.6%)
+
+The RD configs use SMA50 as Phase 2 (faster golden-cross recovery signal). That improvement
+comes entirely from SMA50 Phase 2 — the rolling density itself is irrelevant to the initial
+October 2000 exit. The residual improvement from 41.0% (SMA50 alone) → 34.6% (RD + SMA50)
+comes from the RD firing more aggressively during the 2001–2003 bear market re-entry cycle,
+preventing some whipsaw re-entries. But this comes at a steep price.
+
+### Cost: too many false overrides in 2006–2026
+
+All four RD configurations produce **7 forced exits in 2006–2026** (vs 3 for the baseline).
+The rolling density is more easily triggered than the consecutive counter in normal bull-market
+corrections (where regime closes for several scattered days in a window without any single
+10-day consecutive run). This collapses 2006–26 CAGR from 25.5% → 17–21%.
+
+No configuration in the sweep finds the right balance. Higher window sizes (e.g., 30/40 days)
+might reduce false overrides but were not tested and risk losing the bear-market sensitivity.
+
+### Architectural conclusion
+
+The boiling-frog vulnerability is **not fixable at the VIX gate level**. It requires a change to
+the regime signal itself. Possible approaches (not yet implemented):
+
+1. **Faster regime close**: Use SPY < SMA150 (or SMA100) as the close trigger instead of SMA200.
+   Pro: regime closes sooner in slow declines. Con: more false alarms in routine corrections.
+
+2. **Peak-based trailing stop**: Close regime if SPY falls X% from its 252-day high AND is
+   within Y% of SMA200. Adds momentum context without relying purely on SMA.
+
+3. **Absolute VIX level trigger**: Close regime when VIX > 25 (absolute, not rank), regardless
+   of regime state. Cuts through both slow complacent selloffs and rank-suppression issues.
+
+**Current status:** V51.SC (N=10 consecutive + SMA100 Phase 2) remains the best tested variant.
+Rolling density research is complete and documented — the mechanism is valid but over-aggressive
+at all four tested parameterizations. Not promoted.
+
+---
+
 ## Project Update — 2026-05-04 (V51.SC diagnostic: four stress tests)
 
 ### Q1 — COVID-19 V-Bottom: did the N=10 override trigger?
