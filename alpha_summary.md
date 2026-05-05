@@ -129,6 +129,42 @@ Script: `backtest/chart_annual.py`. Chart: `docs/chart_annual.png`.
 
 ---
 
+## Project Update — 2026-05-05 (Rate Pre-Arm Overlay: NOT Adopted)
+
+**Hypothesis:** Rate-based danger signals (Fed hiking cycle, yield curve inversion, 5Y TIPS real yield spike) could pre-arm the exit-DD guard at a lower threshold during rate-driven bear markets, reducing dot-com and 2022-style drawdowns without the false-exit problems of prior approaches.
+
+**Setup:** 48 sweep configurations: 4 rate signals × 4 guard thresholds (4/6/8/10%) × 3 re-entry rules (instant/gradual/hold). All FRED data via public CSV endpoint (no API key). Full 2000–2026 synthetic UPRO backtest.
+
+**Rate signals tested:**
+- `RATE_FED`: Fed Funds 252-day change ≥ 100bp (active 18.8% of days; 0% during dot-com)
+- `RATE_YC`: 2Y-10Y spread inverted for ≥ 20 days (active 13.3% of days; 26% during dot-com)
+- `RATE_REAL`: 5Y TIPS real yield up ≥ 150bp over 6 months (active 3.3%; no dot-com data)
+- `RATE_ANY`: OR combination (active 24.2%; 26% during dot-com, 7% during GFC)
+
+**Best configuration: RATE_YC + 4% threshold + instant re-entry**
+
+| Metric | V52.DD12 baseline | Best variant | Δ |
+|---|---|---|---|
+| CAGR | 19.1% | 18.9% | −0.2pp |
+| MaxDD | 51.5% | 46.2% | −5.3pp |
+| Dot-com MaxDD | 39.8% | 30.6% | **−9.2pp** ✓ criterion 1 |
+| 2022 MaxDD | 41.9% | 41.9% | **0pp** ✗ criterion 2 |
+| 2023 return | +42.5% | +26.0% | **−16.5pp** ✗ criterion 4 |
+
+**Why the best variant fails:**
+
+The yield curve inverted in August 2022 and remained inverted until September 2024 — a 25-month window. During this entire period, the 4% pre-arm guard was active. In 2023, a shallow correction triggered an exit with DD > 4% (but < 12%), arming the guard. The MACD+DD reopen condition then delayed re-entry through a strong recovery, costing 16.5pp vs baseline. Yield curve inversion is a recession predictor operating on a 1–3 year horizon — far too persistent to use as a market-timing guard overlay.
+
+**Structural reason rate signals cannot fix the dot-com problem:**
+
+The dot-com failure was VIX gate suppression of exits for 5+ months (March–September 2000). Rate signals were active (RATE_YC fired March 10, 2000), but pre-arming the guard only affects the *sensitivity at the moment of exit*. If the regime signal never closes (because VIX keeps suppressing it), the pre-arm threshold change has nothing to act on. The only exits during the 2000 pre-arm window were shallow VIX-forced corrections — and a 4% guard on those corrections creates the exact 2023-style false alarm.
+
+**Verdict: DO NOT ADOPT. V52.DD12 remains the optimal design.**
+
+Script: `backtest/run_rate_prearm_sweep.py`. Results: `backtest/results/rate_prearm_sweep_20260505/`.
+
+---
+
 ## Project Update — 2026-05-04 (Look-Ahead Bias Audit)
 
 Four vectors audited. One bug found and fixed; three confirmed clean.
