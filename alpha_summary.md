@@ -169,6 +169,37 @@ Script: `backtest/run_rate_prearm_sweep.py`. Results: `backtest/results/rate_pre
 
 ---
 
+## Project Update — 2026-05-05 (Time-in-Drawdown Early Exit: NOT Adopted)
+
+**Hypothesis:** Tracking how many consecutive trading days SPY has remained below a depth threshold (relative to its 252-day high) could force an exit before a slow-onset bear market accumulates catastrophic drawdown — addressing the same structural weakness as the rate pre-arm research but via a price-only mechanism.
+
+**Setup:** 9 configurations sweeping 3 depth thresholds (6%, 8%, 10%) × 3 duration thresholds (20, 40, 60 days). Signal computed at close[T] → fill at open[T+1] (same marketable limit model). No look-ahead bias: count advances one day at a time using a forward-walking loop. TiD forced exit interacts with the DD12 guard identically to a normal regime-close exit (DD12 guard arms if SPY DD > 12% at the moment of exit).
+
+**Best configuration: TiD_D08_N40** (8% depth, 40 days, 6 activations over 2000–2026)
+
+| Metric | V52.DD12 baseline | Best TiD variant | Δ |
+|---|---|---|---|
+| 2000–26 CAGR | 19.1% | 15.9% | **−3.2pp** ✗ criterion 3 |
+| MaxDD | 51.5% | 51.5% | 0pp |
+| Dot-com MaxDD | −39.8% | −39.8% | **0pp** ✗ criterion 1 |
+| 2022 MaxDD | −41.9% | −41.9% | 0pp |
+| 2009 return | +137.9% | +16.5% | **−121.4pp** ✗ criterion 4 |
+| 2006–26 CAGR | 25.0% | 20.7% | −4.3pp |
+
+**Why TiD fails on both criteria:**
+
+**Dot-com:** The TiD configurations that fire in 2000 (e.g., D06_N20 fires Nov 2, 2000 at SPY DD −6.6%; D08_N40 fires Jan 5, 2001 at SPY DD −15.2%) do not improve the dot-com MaxDD because V52.DD12's existing gates already handle those exits. The 2000-2002 losses accumulate primarily during the 2001–2002 secondary decline as the strategy re-enters during bear-market bounces — a problem shared by TiD and the baseline equally. TiD firing late in a deep drawdown is redundant with the regime gate; TiD firing early (6% depth, short N) is too shallow to register a meaningful DD at exit, so no guard activates and re-entry is unconstrained.
+
+**Collateral damage — 2009:** The real cost of TiD is what happens at recovery. TiD_D08_N40 exits during GFC drawdown (Jul/Aug 2008 fires at SPY DD −14.2% and −19.6%), activating the DD12 guard at both exits. The guard then blocks re-entry into the 2009 recovery until MACD+DD conditions clear — missing most of the +137.9% bull year. The result: 2009 return collapses from +137.9% to +16.5% (−121.4pp).
+
+**Structural insight:** TiD operates on the same price series that already drives the SMA200 regime signal. During genuine slow-onset bears, the regime signal eventually closes (just late); TiD fires even later (you need N days below depth). During fast recoveries, the DD12 guard interaction means TiD-forced exits accumulate guard debt that blocks re-entry into the strongest bull months. The mechanism provides no timing edge not already captured by the existing gate, but adds material downside via guard-blocked recoveries.
+
+**Verdict: DO NOT ADOPT. V52.DD12 remains the optimal design.**
+
+Script: `backtest/run_tid_sweep.py`. Results: `backtest/results/tid_sweep_20260505/`.
+
+---
+
 ## Project Update — 2026-05-04 (Look-Ahead Bias Audit)
 
 Four vectors audited. One bug found and fixed; three confirmed clean.
