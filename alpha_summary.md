@@ -355,6 +355,75 @@ Script: `backtest/run_v52dd12.py`.
 
 ---
 
+## Project Update — 2026-05-04 (VRDD Sweep: Raw Regime + Exit-DD Guard, No VIX Gate)
+
+### Motivation
+
+V51.DD12's VIX gate was shown to suppress exits in 2022 (VIX rank below 40% during Jan–Mar
+decline) and in dot-com 2000 (VIX declining as market topped). The question: **does the
+exit-DD threshold guard alone provide sufficient protection, allowing the VIX gate to be
+removed entirely?** Without the VIX gate, the strategy exits on every regime close (SPY < SMA200),
+but the reopen guard still requires MACD > 0 AND DD < 8% after any deep exit.
+
+Tested VRDD4, VRDD6, VRDD8, VRDD10, VRDD12, VRDD14 — identical to V51.DD12 except
+`vix_threshold = 0.0` (gate always passes, every regime close triggers exit).
+
+### Results (2000–2026, synthetic SSO)
+
+| Variant | CAGR | MaxDD | Calmar | Dot-com | GFC | End $100k |
+|---|---|---|---|---|---|---|
+| V51.DD12 (VIX gate + DD guard) | 14.7% | 35.6% | 0.41 | 34.2% | 23.9% | $3,668k |
+| VRDD4 (no VIX gate, DD threshold 4%) | 11.1% | 32.5% | 0.34 | 28.0% | 23.1% | $1,599k |
+| VRDD6 | 11.0% | 33.1% | 0.33 | 28.0% | 23.3% | $1,554k |
+| VRDD8 | 11.1% | 35.2% | 0.32 | 28.0% | 23.3% | $1,600k |
+| VRDD10 | 11.3% | 37.2% | 0.30 | 35.9% | 23.3% | $1,692k |
+| **VRDD12** | **11.7%** | **35.6%** | **0.33** | **34.2%** | **23.6%** | **$1,854k** |
+| VRDD14 | 11.2% | 37.0% | 0.30 | 35.6% | 23.6% | $1,654k |
+
+### Key findings
+
+**Removing the VIX gate costs ~3pp CAGR with no improvement in MaxDD.** VRDD12 matches
+V51.DD12's 35.6% MaxDD exactly, but CAGR drops from 14.7% to 11.7% — terminal wealth falls
+from $3,668k to $1,854k (−$1,815k). The CAGR gap comes entirely from **missed post-crisis
+recoveries**: in 2009, VRDD12 returned +11.7% vs V51.DD12 +83.5%. Without the VIX gate to
+hold during volatile-but-bullish recoveries, the strategy exits on brief SPY < SMA200 touches
+and misses the subsequent rally.
+
+**Lower thresholds (VRDD4–8) reduce dot-com MaxDD to 28%** but CAGR stays at ~11% — the
+exit-DD guard at shallow thresholds arms on more routine corrections, blocking re-entry after
+mild pullbacks and missing bull-year gains.
+
+**2009 is the key year** (the failure mode mirror image of 2022):
+- VIX gate prevents exit during 2009's volatile recovery → V51.DD12 stays in SSO through the
+  +83% bull run
+- No VIX gate (VRDD12) → brief SPY < SMA200 touch in July 2009 triggers exit → reopen guard
+  delays re-entry → only +11.7% captured
+
+**The VIX gate is load-bearing.** It performs two distinct functions:
+1. **Prevent false exits in volatile recoveries** (VIX high → stay invested)
+2. **Suppress exits in complacent slow bears** (VIX low → hold even after regime closes) ← known bug
+
+Removing the gate eliminates both the good and the bad behavior. The exit-DD guard handles
+the slow-bear problem (it arms when DD is deep enough), so function 2 is now redundant.
+But function 1 remains critical, and the exit-DD guard does not replace it.
+
+**Verdict: do not remove the VIX gate.** V51.DD12 remains the champion. The correct approach
+(already implemented in V51.DD12) is to keep the VIX gate for function 1 and rely on the
+exit-DD guard for function 2.
+
+### Rolling 5-year CAGR comparison
+
+| | Mean | Min | P25 | Median | P75 | Max | Neg years |
+|---|---|---|---|---|---|---|---|
+| V51.DD12 | 16.5% | 4.0% | 11.9% | 15.1% | 22.4% | 30.9% | 0 |
+| VRDD12 | 12.9% | 1.6% | 7.7% | 12.6% | 17.2% | 24.3% | 0 |
+
+V51.DD12 is strictly dominant: higher mean, higher floor, higher ceiling, same 0 negative periods.
+
+Script: `backtest/run_vrdd12_sweep.py`. Results: `backtest/results/vrdd12_sweep_20260504/`.
+
+---
+
 ## Project Update — 2026-05-04 (Asymmetric Gate: V51.A and V51.AC)
 
 ### Motivation
@@ -458,8 +527,9 @@ This would catch the October 2000 exit (SPY was −9.6% from peak at exit) while
 re-entry for 2011/2015/2018-style corrections where DD was small at the exit moment.
 
 **Open research directions:**
-1. Exit-DD threshold guard: sweep DD-at-exit activation threshold (6%, 8%, 10%, 12%)
-2. Extend two-phase MA-cross guard to ALL exits with Phase 1 timeout (if SMA death cross never
+1. ~~Exit-DD threshold guard: sweep DD-at-exit activation threshold~~ → **Resolved**: V51.DD12 at 12% adopted as champion
+2. ~~Remove VIX gate (VRDD sweep)~~ → **Resolved**: VIX gate is load-bearing; removal costs 3pp CAGR. V51.DD12 remains champion
+3. Extend two-phase MA-cross guard to ALL exits with Phase 1 timeout (if SMA death cross never
    forms within N days, fall back to fast re-entry — avoids indefinite cash lock in shallow bears)
 
 ---
