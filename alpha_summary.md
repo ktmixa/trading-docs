@@ -355,6 +355,105 @@ Script: `backtest/run_v52dd12.py`.
 
 ---
 
+## Project Update — 2026-05-04 (V51.1.DD12: 1-Day Debounce + Exit-DD Guard, No VIX Gate)
+
+### Motivation
+
+V51.1 (1-day close, 5-day fast reopen, asymmetric regime) was identified as the highest-performing
+2× variant on 2006–2026 before the exit-DD guard was designed. With 319 transitions over 20 years
+it was abandoned due to execution cost and lack of slow-bear protection. The DD12 guard now exists.
+Hypothesis: V51.1.DD12 (1d/5d regime + DD12 guard + no VIX gate) may outperform V51.DD12 by
+capturing faster bull-market re-entry while the guard prevents catastrophic bear re-entries.
+
+### Variant definition
+
+- **Close:** 1 day SPY < SMA200 (immediate, via `spy_regime_asymmetric` base signal)
+- **Reopen:** 5 consecutive days where SPY > SMA100 (rate-easing) or SMA100 > SMA200 (tightening)
+- **VIX gate:** none (threshold = 0.0)
+- **DD guard:** same as V51.DD12 — arm when DD at exit > 12%, require MACD > 0 AND DD < 8% to reopen
+
+### Results (2000–2026, synthetic SSO)
+
+| Variant | CAGR | MaxDD | Calmar | Dot-com | GFC | Trips | End $100k |
+|---|---|---|---|---|---|---|---|
+| V51.DD12 (champion) | 14.7% | 35.6% | 0.41 | 34.2% | 23.9% | 98 | $3,668k |
+| V51.1 (raw, no guard) | 12.5% | 34.9% | 0.36 | 27.1% | 19.1% | 32 | $2,245k |
+| V51.1.R (VIX gate, no guard) | 13.1% | 34.9% | 0.38 | 27.1% | 19.1% | 29 | $2,555k |
+| V51.1.RDD12 (VIX gate + DD12) | 12.5% | 34.9% | 0.36 | 27.1% | 19.1% | 29 | $2,241k |
+| **V51.1.DD12 (no VIX, DD12)** | **12.0%** | **34.9%** | **0.34** | **27.1%** | **19.1%** | **32** | **$1,969k** |
+
+### DD threshold sweep (V51.1.DDX, 2000–2026)
+
+| Variant | CAGR | dCAGR vs V51.DD12 | MaxDD | Dot-com |
+|---|---|---|---|---|
+| V51.1.DD4 | 10.8% | −3.8pp | 29.3% | 27.1% |
+| V51.1.DD6 | 12.0% | −2.6pp | 31.6% | 27.1% |
+| V51.1.DD8 | 11.3% | −3.3pp | 34.9% | 27.1% |
+| V51.1.DD10 | 12.0% | −2.7pp | 34.9% | 27.1% |
+| V51.1.DD12 | 12.0% | −2.7pp | 34.9% | 27.1% |
+| V51.1.DD14 | 12.2% | −2.5pp | 34.9% | 27.1% |
+| V51.1.DD16 | 12.5% | −2.1pp | 34.9% | 27.1% |
+
+No DD threshold achieves V51.DD12 CAGR. The dot-com MaxDD is uniformly 27.1% — independent of
+threshold — because the protection comes from the 5-day reopen, not the guard.
+
+### Key findings
+
+**1. V51.1.DD12 fails the success criteria.** CAGR is 2.7pp below V51.DD12 (12.0% vs 14.7%).
+The transition count (32) and dot-com MaxDD (27.1%) both pass, but the CAGR penalty is fatal.
+V51.DD12 remains champion.
+
+**2. The 5-day reopen is its own bear protection — the DD12 guard is redundant for V51.1.**
+The guard activates only **2 times in 26 years**:
+- COVID Feb 2020 (DD = −12.1%): 67 days in cash → missed most of the recovery rally
+- March 2023 (DD = −15.3%): 19 days in cash
+
+During dot-com 2001–2003 and GFC 2008, the guard *never fires*. Reason: after the first
+bear-market exit, SPY never stays above SMA100 for 5 consecutive days during the extended
+decline — so the V51.1 regime never tries to re-enter, and the guard has nothing to block.
+The 5d reopen requirement prevents all bear-bounce re-entries inherently, making the DD guard
+structurally irrelevant for V51.1's regime type.
+
+**3. Both guard activations occur in bull-market corrections, where the guard hurts.** COVID
+and March 2023 are corrections that resolve quickly. The guard delays re-entry for 19–67 days
+after the recovery begins, costing returns in exactly the wrong situations. Net effect vs
+V51.1 raw: −0.5pp CAGR with no MaxDD improvement. The guard makes V51.1 strictly worse.
+
+**4. The VIX gate (not the DD12 guard) is what creates V51.DD12's CAGR advantage.**
+Key year — 2009: V51.DD12 +83.5% vs V51.1.DD12 +47.5%. The VIX gate holds position through
+volatile recovery conditions (high VIX = don't exit on minor dips). Without it, V51.1.DD12
+exits on 5-day SPY < SMA200 episodes during the 2009 rally and misses much of the upside.
+V51.1 compensates in bear years (2022: −19.0% vs V51.DD12 −27.8%) but the bull-year recovery
+lag costs far more than the bear-year savings.
+
+**5. Transition count paradox.** V51.1.DD12 has only 32 round trips (not the ~319 from the
+original V51.1 research). The difference: the original V51.1 likely used a simpler non-stateful
+signal (SPY > SMA200 for both open and reopen conditions). This implementation uses the adaptive
+SMA100 reopen, which naturally provides more stability — SPY can be above SMA200 but below
+SMA100, preventing reopen. This also explains why V51.DD12's 98 trips exceeds V51.1's 32: the
+VIX gate creates a nuanced entry/exit pattern that produces more events than the simple 5d
+reopen filter.
+
+### Rolling 5-year comparison
+
+| | Mean | Min | P25 | Median | P75 | Max | Neg |
+|---|---|---|---|---|---|---|---|
+| V51.DD12 | 16.5% | 4.0% | 11.9% | 15.1% | 22.4% | 30.9% | 0 |
+| V51.1.DD12 | 13.4% | 5.0% | 8.1% | 11.9% | 19.2% | 24.0% | 0 |
+
+V51.DD12 strictly dominates: higher mean (+3.1pp), higher ceiling (+6.9pp), comparable floor.
+
+### Verdict
+
+**Do not adopt V51.1.DD12.** The 5-day reopen eliminates the need for the DD guard (redundant
+protection) but the removed VIX gate costs 2.7pp CAGR. The structural role of the VIX gate in
+V51.DD12 is to hold positions through high-volatility recoveries — this function cannot be
+replicated by any reopen debounce because it acts on the exit side, not the reopen side.
+
+Script: `backtest/run_v51_1_dd12_sweep.py`. Results: `backtest/results/v51_1_dd12_sweep_20260504/`.
+
+---
+
 ## Project Update — 2026-05-04 (VRDD Sweep: Raw Regime + Exit-DD Guard, No VIX Gate)
 
 ### Motivation
@@ -529,7 +628,8 @@ re-entry for 2011/2015/2018-style corrections where DD was small at the exit mom
 **Open research directions:**
 1. ~~Exit-DD threshold guard: sweep DD-at-exit activation threshold~~ → **Resolved**: V51.DD12 at 12% adopted as champion
 2. ~~Remove VIX gate (VRDD sweep)~~ → **Resolved**: VIX gate is load-bearing; removal costs 3pp CAGR. V51.DD12 remains champion
-3. Extend two-phase MA-cross guard to ALL exits with Phase 1 timeout (if SMA death cross never
+3. ~~V51.1.DD12 (1d close / 5d reopen + DD guard)~~ → **Resolved**: 5d reopen makes DD guard redundant (fires only 2× in 26yrs); VIX gate still needed for recovery holding; V51.DD12 remains champion
+4. Extend two-phase MA-cross guard to ALL exits with Phase 1 timeout (if SMA death cross never
    forms within N days, fall back to fast re-entry — avoids indefinite cash lock in shallow bears)
 
 ---
