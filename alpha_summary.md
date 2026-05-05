@@ -129,6 +129,32 @@ Script: `backtest/chart_annual.py`. Chart: `docs/chart_annual.png`.
 
 ---
 
+## Project Update — 2026-05-05 (Nuclear Bunker: Synthetic 1% SPX Put Overlay)
+
+**Hypothesis:** Continuously allocating 1%/year of portfolio NAV to deep OTM (30%) SPX puts — priced via Black-Scholes with a 1.3× VIX skew adjustment — provides meaningful insurance against a weekend black-swan gap-down, while adding only ~1.5–2pp of annual drag.
+
+**Setup:** 90 DTE puts, held 60 calendar days, sold at 30 DTE and rolled. Strike K = SPY × 0.70. Sigma = VIX/100 × 1.3. Budget per roll = 1% × (60/365) × portfolio NAV. Holds are maintained even during V52 cash periods. A $0.05/unit minimum price floor prevents unrealistic unit counts at VIX < ~15% (where BS prices approach zero). 158 rolls over 2000–2026.
+
+**Results:**
+
+| Metric | V52.DD12 | V52 + NuclearBunker | Δ |
+|---|---|---|---|
+| 2000–26 CAGR | 19.7% | 18.5% | **−1.2pp** |
+| MaxDD | −51.5% | −51.7% | unchanged |
+| GFC MaxDD | −34.5% | −35.0% | +0.5pp worse |
+| COVID MaxDD | −32.7% | −32.6% | +0.1pp |
+| 2022 MaxDD | −41.9% | −42.1% | unchanged |
+
+**Stress test result:** A synthetic -20% SPY + VIX→80 shock reprices the put **646×** per unit (from $0.009 → $5.65). Against the -60% UPRO loss (~$57k on a $95k position), the hedge provides $17,568 — **31% offset**. Exponential repricing confirmed.
+
+**Why historical crashes show little improvement:** V52.DD12's VIX gate already exits during the same volatility spikes that make the puts valuable. The strategy is largely in cash before most GFC/COVID drawdown accumulates. The 30% OTM strike was only briefly in-the-money during COVID (−34.7% peak-to-trough). 2022 was a slow grind that never reached the −30% threshold. The hedge is designed for a scenario not present in the 26-year history: an overnight gap-down while the strategy is invested, before the regime gate can react.
+
+**Verdict: ELECTIVE.** The −1.2pp CAGR drag is correctly priced for the black-swan scenario it targets. V52.DD12 standalone remains the better risk-adjusted choice by historical metrics. The hedge is a judgment call on overnight gap risk.
+
+Script: `backtest/run_nuclear_bunker.py`. Results: `backtest/results/nuclear_bunker_20260505/`.
+
+---
+
 ## Project Update — 2026-05-05 (Rate Pre-Arm Overlay: NOT Adopted)
 
 **Hypothesis:** Rate-based danger signals (Fed hiking cycle, yield curve inversion, 5Y TIPS real yield spike) could pre-arm the exit-DD guard at a lower threshold during rate-driven bear markets, reducing dot-com and 2022-style drawdowns without the false-exit problems of prior approaches.
