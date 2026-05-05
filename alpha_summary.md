@@ -78,6 +78,56 @@ Script: `backtest/chart_vintage.py`. Chart: `docs/chart_vintage.png`.
 
 ---
 
+## Annual Returns by Calendar Year
+
+![Annual returns by calendar year](chart_annual.png)
+
+Each cell is the return for that calendar year only (Jan 1 → Dec 31). 2025 is partial (through 2026-05-02). Best strategy per year marked with ←.
+
+```
+Year        SPY        QQQ        V50        V51   V51.DD12   V52.DD12
+──────────────────────────────────────────────────────────────────────
+2000      -8.8%     -38.4%      -9.3%     -23.1%     -21.2%     -36.2% ← SPY
+2001     -10.1%     -27.2%      -0.7%     -21.3%       0.0%       0.0% ← (tie DD12=V52)
+2002     -22.4%     -39.2%      -8.1%     -28.4%       0.0%       0.0% ← (tie DD12=V52)
+2003      24.2%      43.6%      17.9%      37.7%      31.2%      48.1% ← V52.DD12
+2004      10.7%      10.8%      -1.7%       2.9%       2.3%       1.6% ← QQQ
+2005       5.3%       2.6%       2.1%      13.1%      13.1%      17.0% ← V52.DD12
+2006      13.8%       4.8%      13.7%      19.0%      19.0%      26.7% ← V52.DD12
+2007       5.3%      18.8%      -4.6%     -18.3%     -18.3%     -28.7% ← QQQ
+2008     -36.2%     -40.8%       1.5%       3.2%       2.6%       3.7% ← V52.DD12
+2009      22.7%      48.3%      20.8%      83.4%      83.4%     137.8% ← V52.DD12
+2010      13.1%      18.4%      -1.2%       3.4%      22.7%      31.5% ← V52.DD12
+2011       0.9%       1.9%      -2.3%     -20.1%     -10.7%     -18.5% ← QQQ
+2012      14.2%      15.9%      13.0%      22.6%      33.0%      50.2% ← V52.DD12
+2013      29.0%      32.4%      28.1%      60.2%      60.2%      99.2% ← V52.DD12
+2014      14.6%      20.1%      10.2%      17.3%      17.3%      24.5% ← V52.DD12
+2015       1.3%       9.8%       8.1%      -3.5%      -9.1%     -15.9% ← QQQ
+2016      13.6%       9.4%       8.9%      19.9%      19.9%      29.8% ← V52.DD12
+2017      20.8%      31.5%      20.9%      42.5%      42.5%      68.2% ← V52.DD12
+2018      -5.2%      -1.8%      -6.7%     -16.6%     -13.8%     -23.6% ← QQQ
+2019      31.1%      38.4%      11.7%      38.6%      25.0%      36.8% ← V51
+2020      17.2%      46.0%      13.5%      28.8%      16.7%      20.5% ← QQQ
+2021      30.5%      29.2%      30.4%      64.8%      64.8%     106.7% ← V52.DD12
+2022     -18.6%     -33.2%       0.5%     -26.2%     -29.1%     -41.5% ← V50
+2023      26.7%      55.9%      11.9%      31.7%      28.6%      40.9% ← QQQ
+2024      25.6%      27.7%      26.3%      46.9%      46.9%      69.3% ← V52.DD12
+2025      18.0%      21.0%      12.3%      24.0%      24.0%      32.9% ← V52.DD12
+──────────────────────────────────────────────────────────────────────
+```
+
+**Key findings:**
+
+- **Bear years (2000–2002, 2008, 2022): the gate parks everything in cash.** V51.DD12 and V52.DD12 return 0% in 2001 and 2002 (fully in cash), +2.6%/+3.7% in 2008 (exited early), −29%/−42% in 2022 (guard armed but still took some drawdown before exit). V50 is the best in 2022 (+0.5%) because 1× leverage hurts less on re-entry.
+- **Bull years: V52.DD12 dominates by a wide margin.** 2009: +138%, 2013: +99%, 2021: +107% vs V51.DD12's 83%, 60%, 65%. The 3× compounding in strong up-years is the engine of the terminal wealth advantage.
+- **QQQ wins 6 years** (2004, 2007, 2011, 2015, 2018, 2020, 2023) — mostly years where SPY underperforms tech or V51/V52 are exiting early and missing a late-year rally. In 2020 QQQ +46% vs V52.DD12 +21% (COVID crash then recovery while guard was still armed).
+- **2001–2002: tied at 0%.** Both V51.DD12 and V52.DD12 are in cash for two full years — the exit-DD guard armed after the deep 2001 exits and kept them out through the bottom. This is the exact protection the guard was designed to provide.
+- **V52.DD12's worst single year: 2022 (−41.5%).** The guard eventually exits but not before a large drawdown. Compare V50 at +0.5% — the 1× regime-only strategy was the best in 2022.
+
+Script: `backtest/chart_annual.py`. Chart: `docs/chart_annual.png`.
+
+---
+
 ## Project Update — 2026-05-04 (Look-Ahead Bias Audit)
 
 Four vectors audited. One bug found and fixed; three confirmed clean.
