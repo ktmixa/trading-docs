@@ -131,25 +131,33 @@ Script: `backtest/chart_annual.py`. Chart: `docs/chart_annual.png`.
 
 ## Project Update — 2026-05-05 (Nuclear Bunker: Synthetic 1% SPX Put Overlay)
 
-**Hypothesis:** Continuously allocating 1%/year of portfolio NAV to deep OTM (30%) SPX puts — priced via Black-Scholes with a 1.3× VIX skew adjustment — provides meaningful insurance against a weekend black-swan gap-down, while adding only ~1.5–2pp of annual drag.
+**Hypothesis:** Allocating 1%/year of portfolio NAV to deep OTM (30%) SPX puts — priced via Black-Scholes with a 1.3× VIX skew adjustment — provides insurance against an overnight gap-down while the strategy is invested.
 
-**Setup:** 90 DTE puts, held 60 calendar days, sold at 30 DTE and rolled. Strike K = SPY × 0.70. Sigma = VIX/100 × 1.3. Budget per roll = 1% × (60/365) × portfolio NAV. Holds are maintained even during V52 cash periods. A $0.05/unit minimum price floor prevents unrealistic unit counts at VIX < ~15% (where BS prices approach zero). 158 rolls over 2000–2026.
+**Setup:** 90 DTE puts, held 60 calendar days, sold at 30 DTE. Strike K = SPY × 0.70. Sigma = VIX/100 × 1.3. $0.05/unit minimum price floor. Two variants tested:
+
+- **v1 always-rolling**: Hold puts continuously regardless of V52 regime. 158 rolls 2000–2026.
+- **v2 regime-aware**: Sell puts when V52 exits to cash (bank proceeds); no new puts until V52 re-enters. 200 events (99 entries + 101 scheduled rolls).
 
 **Results:**
 
-| Metric | V52.DD12 | V52 + NuclearBunker | Δ |
-|---|---|---|---|
-| 2000–26 CAGR | 19.7% | 18.5% | **−1.2pp** |
-| MaxDD | −51.5% | −51.7% | unchanged |
-| GFC MaxDD | −34.5% | −35.0% | +0.5pp worse |
-| COVID MaxDD | −32.7% | −32.6% | +0.1pp |
-| 2022 MaxDD | −41.9% | −42.1% | unchanged |
+| Metric | V52.DD12 | v1 always-roll | v2 regime-aware | Δ (v2 vs base) |
+|---|---|---|---|---|
+| 2000–26 CAGR | 19.7% | 18.5% | **20.1%** | **+0.4pp** |
+| MaxDD | −51.5% | −51.7% | −51.6% | −0.1pp |
+| GFC MaxDD | −34.5% | −35.0% | −34.8% | +0.3pp |
+| COVID MaxDD | −32.7% | −32.6% | **−29.7%** | **+3.0pp** |
+| 2022 MaxDD | −41.9% | −42.1% | −41.7% | +0.2pp |
+| End value ($100k) | $9,939k | $8,685k | **$12,530k** | **+$2,591k** |
 
-**Stress test result:** A synthetic -20% SPY + VIX→80 shock reprices the put **646×** per unit (from $0.009 → $5.65). Against the -60% UPRO loss (~$57k on a $95k position), the hedge provides $17,568 — **31% offset**. Exponential repricing confirmed.
+**The recycling problem (why v1 loses):** When V52 exits during a crash, puts are valuable — but v1 immediately rolls proceeds into new puts priced at crisis-era VIX (40–50+). Those expensive puts decay as volatility normalizes, erasing the gains. Meanwhile V52 is in cash earning T-bills, so the hedge budget is burned with zero equity exposure to protect.
 
-**Why historical crashes show little improvement:** V52.DD12's VIX gate already exits during the same volatility spikes that make the puts valuable. The strategy is largely in cash before most GFC/COVID drawdown accumulates. The 30% OTM strike was only briefly in-the-money during COVID (−34.7% peak-to-trough). 2022 was a slow grind that never reached the −30% threshold. The hedge is designed for a scenario not present in the 26-year history: an overnight gap-down while the strategy is invested, before the regime gate can react.
+**How v2 fixes it:** On V52 exit, sells puts immediately and banks 100% of crash gains permanently. No new puts until re-entry. The COVID year shows this most clearly: 2020 annual return jumps from +20.6% (base) to +47.2% (v2) as COVID puts (VIX→80) were sold at peak value instead of recycled.
 
-**Verdict: ELECTIVE.** The −1.2pp CAGR drag is correctly priced for the black-swan scenario it targets. V52.DD12 standalone remains the better risk-adjusted choice by historical metrics. The hedge is a judgment call on overnight gap risk.
+**Stress test:** A synthetic -20% SPY + VIX→80 reprices the put **646×** (from $0.009 → $5.65). Against -60% UPRO loss (~$57k), the hedge provides $17,568 — **31% offset**.
+
+**Why crashes show limited MaxDD improvement:** V52.DD12's VIX gate already exits during the same volatility spikes that make puts valuable. MaxDD is mostly accumulated in the few weeks before V52 exits — a window where the 30% OTM puts aren't yet deeply ITM. The hedge is designed for an overnight gap-down that the regime signal cannot anticipate.
+
+**Verdict: ELECTIVE-POSITIVE (v2 only).** v2 regime-aware adds +0.4pp CAGR and +$2.6M end value while providing black-swan insurance — it is historically alpha-positive. v1 always-rolling is strictly inferior (−1.2pp drag) and should not be used. Practical barrier: requires actively managing puts alongside the V52 regime signal.
 
 Script: `backtest/run_nuclear_bunker.py`. Results: `backtest/results/nuclear_bunker_20260505/`.
 
