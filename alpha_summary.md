@@ -133,13 +133,13 @@ Script: `backtest/chart_annual.py`. Chart: `docs/chart_annual.png`.
 
 **Hypothesis:** Rate-based danger signals (Fed hiking cycle, yield curve inversion, 5Y TIPS real yield spike) could pre-arm the exit-DD guard at a lower threshold during rate-driven bear markets, reducing dot-com and 2022-style drawdowns without the false-exit problems of prior approaches.
 
-**Setup:** 48 sweep configurations: 4 rate signals × 4 guard thresholds (4/6/8/10%) × 3 re-entry rules (instant/gradual/hold). All FRED data via public CSV endpoint (no API key). Full 2000–2026 synthetic UPRO backtest.
+**Setup:** 48 sweep configurations: 4 rate signals × 4 guard thresholds (4/6/8/10%) × 3 re-entry rules (instant/gradual/hold). All FRED data via public CSV endpoint (no API key), fetched 2 years before backtest start so 252-day lookbacks are valid from day one. DFF rounded to 1 decimal place (step function eliminating interbank noise without introducing lag). Full 2000–2026 synthetic UPRO backtest.
 
 **Rate signals tested:**
-- `RATE_FED`: Fed Funds 252-day change ≥ 100bp (active 18.8% of days; 0% during dot-com)
-- `RATE_YC`: 2Y-10Y spread inverted for ≥ 20 days (active 13.3% of days; 26% during dot-com)
-- `RATE_REAL`: 5Y TIPS real yield up ≥ 150bp over 6 months (active 3.3%; no dot-com data)
-- `RATE_ANY`: OR combination (active 24.2%; 26% during dot-com, 7% during GFC)
+- `RATE_FED`: Fed Funds 252-day change ≥ 100bp; deactivates on 63-day change ≤ −25bp (active 25.9% of days; 30% during dot-com — correctly identified 1999–2000 hike)
+- `RATE_YC`: 2Y-10Y spread inverted for ≥ 20 days (active 13.2% of days; 26% during dot-com)
+- `RATE_REAL`: 5Y TIPS real yield up ≥ 150bp over 6 months (active 2.8%; no dot-com data)
+- `RATE_ANY`: OR combination (active 27.3%; 31% during dot-com, 15% during GFC)
 
 **Best configuration: RATE_YC + 4% threshold + instant re-entry**
 
@@ -157,7 +157,11 @@ The yield curve inverted in August 2022 and remained inverted until September 20
 
 **Structural reason rate signals cannot fix the dot-com problem:**
 
-The dot-com failure was VIX gate suppression of exits for 5+ months (March–September 2000). Rate signals were active (RATE_YC fired March 10, 2000), but pre-arming the guard only affects the *sensitivity at the moment of exit*. If the regime signal never closes (because VIX keeps suppressing it), the pre-arm threshold change has nothing to act on. The only exits during the 2000 pre-arm window were shallow VIX-forced corrections — and a 4% guard on those corrections creates the exact 2023-style false alarm.
+RATE_FED correctly fires during dot-com (30% coverage, activated Jan 2000) but produces no
+dot-com MaxDD improvement. During the pre-arm window the regime rarely closed (VIX gate
+suppression for 5+ months, March–September 2000), and exits that did occur were too shallow
+to trip even a 4% guard. Pre-arm sensitivity only matters when there are eligible exits.
+No exits = no guard = no effect. This is an architectural constraint, not a signal quality problem.
 
 **Verdict: DO NOT ADOPT. V52.DD12 remains the optimal design.**
 
