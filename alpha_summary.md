@@ -6,7 +6,7 @@
 
 ## Performance Summary — Current Contenders (2000–2026, synthetic pre-inception)
 
-![V51.DD12 Headline](chart_headline.png)
+![Headline comparison](chart_headline.png)
 
 | Strategy | CAGR | MaxDD | Calmar | Dot-com | GFC | COVID | 2022 | End $100k |
 |---|---|---|---|---|---|---|---|---|
@@ -14,8 +14,11 @@
 | QQQ B&H | 8.4% | 83.0% | 0.10 | 78.8% | 52.0% | 28.6% | 34.3% | $843k |
 | V50 (SPY 1×, regime only) | 8.1% | 27.0% | 0.30 | 27.0% | 17.6% | 13.8% | — | — |
 | V51 (SSO 2×, regime only) | 11.9% | 65.7% | 0.18 | 65.7% | 40.3% | 22.9% | — | — |
-| **V51.DD12** (2× + DD guard) | **14.7%** | **35.6%** | **0.41** | **35.6%** | **30.8%** | **22.9%** | **27.8%** | **$3,668k** |
-| **V52.DD12** (3× + DD guard) | **19.1%** | **51.5%** | **0.37** | **39.7%** | **34.8%** | **32.4%** | **40.4%** | **$9,939k** |
+| V51.DD12 (2× + DD guard) | 14.7% | 35.6% | 0.41 | 35.6% | 30.8% | 22.9% | 27.8% | $3,668k |
+| V52.DD12 (3× + DD guard) | 19.1% | 51.5% | 0.37 | 39.7% | 34.8% | 32.4% | 40.4% | $9,939k |
+| **V52.DD.OTM** ← champion | **20.1%** | **51.6%** | **0.39** | **39.5%** | **34.8%** | **29.7%** | **39.9%** | **$12,530k** |
+
+**V52.DD.OTM** is V52.DD12 + Nuclear Bunker v2 regime-aware put overlay (see section below for full specification). It is the current research champion. 2026-05-05.
 
 2006–2026 (real SSO/UPRO): V51.DD12 CAGR **~20.3%**. V52.DD12 uses synthetic UPRO anchored 2009-06-25.
 V51.R 2006–26: CAGR **~22.8%**. V51.SC 2006–26: CAGR **~21.1%**. *(T-bill cash yield fix applied 2026-05-04.)*
@@ -29,6 +32,53 @@ V51.R 2006–26: CAGR **~22.8%**. V51.SC 2006–26: CAGR **~21.1%**. *(T-bill ca
 
 ---
 
+## V52.DD.OTM — Champion Strategy Specification
+
+**Declared champion: 2026-05-05. CAGR 20.1% | MaxDD 51.6% | End value $12,530k (from $100k, 2000–2026).**
+
+V52.DD.OTM is a two-component strategy: the V52.DD12 equity engine plus a regime-aware deep-OTM put overlay that converts crash volatility gains into permanent alpha rather than recycling them into expensive post-crisis premium.
+
+### Component 1: V52.DD12 (equity engine)
+
+- **Instrument:** UPRO (3× leveraged S&P 500 ETF). Synthetic UPRO used pre-2009 inception.
+- **Regime signal:** SPY 200-day SMA crossover. Long when SPY > SMA200 (bullish regime).
+- **VIX exit gate:** Exit suppressed when VIX 252-day min-max rank < 40%. Rationale: shallow VIX rank = market calm = likely whipsaw, not a genuine bear market entry.
+- **Exit-DD guard (DD12):** Once SPY drawdown from 252-day high exceeds 12%, the exit-DD guard arms. On the next regime-close signal, the strategy exits regardless of VIX rank.
+- **Reopen guard:** After the DD12 guard fires, re-entry requires MACD histogram > 0 AND SPY DD from 252-day high < 8% (both conditions, same day). Prevents re-entry into ongoing bear markets.
+- **Execution model:** Signal at close[T] → marketable limit order at open[T+1] (1% above/below open). If unfilled (price gaps through limit), retries next day.
+
+### Component 2: Nuclear Bunker v2 (regime-aware put overlay)
+
+- **Annual budget:** 1% of portfolio NAV per year (≈0.164% per 60-day roll).
+- **Instrument:** Deep OTM SPX puts, synthetically priced via Black-Scholes.
+  - Strike K = SPY × 0.70 (30% OTM)
+  - Implied vol σ = VIX/100 × 1.3 (skew adjustment for deep OTM)
+  - Minimum option price floor: $0.05/unit (exchange tick; prevents unrealistic unit counts at VIX < 15%)
+- **Standard roll (while invested):** Buy at 90 DTE, hold 60 calendar days, sell at 30 DTE, immediately roll with (proceeds + new budget).
+- **Regime exit (V52 → cash):** Sell all puts immediately, bank 100% of proceeds into the cash pool. No recycling. No new puts until re-entry.
+- **Regime entry (cash → V52 invested):** Buy fresh 90 DTE puts with a new budget allocation only (no prior proceeds to reinvest). Clock resets.
+- **While in cash:** Zero hedge exposure. Zero premium spend. Budget accumulates on the next entry.
+
+### Why regime-aware beats always-rolling
+
+The always-rolling version (v1) was a 1.2pp CAGR drag. The recycling problem: crash puts become valuable when VIX spikes (GFC, COVID) — but v1 immediately rolls those gains into new puts priced at crisis-era VIX (40–60+), which then decay back to near-zero as volatility normalizes. Net effect: crash gains are given back, plus budget is burned during the cash period when V52 has zero equity exposure.
+
+v2 locks in crash gains at the exit. 2020 annual return: +47.2% (v2) vs +20.6% (V52.DD12 baseline) — COVID puts were worth ~17% of NAV at exit and were banked permanently.
+
+### Operational requirements (not yet deployed)
+
+1. Each V52 entry signal: buy 90 DTE SPY puts at 70% of current SPY price. Budget = 1% × (60/365) × total NAV.
+2. Every 60 calendar days while invested: close existing puts, open new 90 DTE puts with (proceeds + new budget).
+3. Each V52 exit signal: close all puts immediately before or on the same day as the UPRO sell order.
+4. While in cash: do nothing with puts.
+
+Practical implementation note: "SPX puts" can be approximated with SPY puts scaled ×10. The $0.05 floor is already SPY-equivalent pricing.
+
+Scripts: `backtest/run_nuclear_bunker.py` (research), `backtest/chart_headline.py`, `backtest/chart_annual.py`, `backtest/chart_vintage.py` (charts).
+Results: `backtest/results/nuclear_bunker_20260505/`.
+
+---
+
 ## Vintage CAGR Analysis — if started Jan 1 of year X, held through 2026-05-02
 
 ![Vintage CAGR by start year](chart_vintage.png)
@@ -36,43 +86,43 @@ V51.R 2006–26: CAGR **~22.8%**. V51.SC 2006–26: CAGR **~21.1%**. *(T-bill ca
 Each row answers: "If I deployed capital on the first trading day of this year and held until today, what annualised CAGR would I have earned?"  Strategy equity curves are computed once over the full 2000–2026 range; each vintage slices the same equity series from its start date.
 
 ```
-Start    Yrs        SPY        QQQ        V50        V51   V51.DD12   V52.DD12
-──────────────────────────────────────────────────────────────────────────────
- 2000   26.3       8.2%       8.4%       8.2%      12.2%      15.0%      19.7% ← V52.DD12
- 2001   25.3       9.0%      11.3%       8.9%      13.9%      16.7%      22.6% ← V52.DD12
- 2002   24.3       9.8%      13.1%       9.2%      15.4%      17.3%      23.5% ← V52.DD12
- 2003   23.3      11.3%      15.9%      10.0%      17.7%      18.0%      24.5% ← V52.DD12
- 2004   22.3      10.7%      14.8%       9.6%      16.7%      17.3%      23.4% ← V52.DD12
- 2005   21.3      10.8%      15.1%      10.2%      17.6%      18.2%      24.7% ← V52.DD12
- 2006   20.3      10.9%      15.6%      10.6%      17.7%      18.4%      25.0% ← V52.DD12
- 2007   19.3      10.8%      16.2%      10.4%      17.6%      18.4%      24.9% ← V52.DD12
- 2008   18.3      11.2%      16.1%      11.2%      19.9%      20.7%      28.7% ← V52.DD12
- 2009   17.3      14.6%      20.5%      11.7%      20.9%      21.8%      30.3% ← V52.DD12
- 2010   16.3      14.0%      18.8%      11.2%      17.8%      18.7%      25.5% ← V52.DD12
- 2011   15.3      14.0%      18.7%      12.1%      18.8%      18.5%      25.1% ← V52.DD12
- 2012   14.3      14.8%      19.9%      13.1%      22.1%      20.8%      28.9% ← V52.DD12
- 2013   13.3      14.7%      19.9%      13.1%      22.1%      20.0%      27.5% ← V52.DD12
- 2014   12.3      13.7%      19.0%      12.0%      19.5%      17.2%      23.0% ← V52.DD12
- 2015   11.3      13.6%      18.9%      12.3%      20.1%      17.6%      23.5% ← V52.DD12
- 2016   10.3      15.0%      20.1%      12.8%      22.7%      20.6%      28.1% ← V52.DD12
- 2017    9.3      15.1%      21.2%      13.1%      22.8%      20.5%      27.7% ← V52.DD12
- 2018    8.3      14.3%      19.8%      12.1%      20.4%      17.9%      23.3% ← V52.DD12
- 2019    7.3      17.3%      23.0%      15.1%      27.5%      23.1%      31.6% ← V52.DD12
- 2020    6.3      15.0%      20.4%      15.7%      26.0%      22.9%      31.1% ← V52.DD12
- 2021    5.3      14.9%      16.4%      15.9%      25.2%      23.8%      32.7% ← V52.DD12
- 2022    4.3      11.5%      13.4%      12.8%      17.5%      15.9%      19.8% ← V52.DD12
- 2023    3.3      22.7%      33.2%      16.2%      34.4%      33.6%      47.8% ← V52.DD12
- 2024    2.3      21.3%      25.4%      18.1%      36.1%      36.1%      51.6% ← V52.DD12
- 2025    1.3      18.3%      23.9%      11.2%      26.2%      26.2%      35.8% ← V52.DD12
-──────────────────────────────────────────────────────────────────────────────
+Start    Yrs        SPY        QQQ        V50        V51   V51.DD12   V52.DD12  V52.DD.OTM
+──────────────────────────────────────────────────────────────────────────────────────────
+ 2000   26.3       8.2%       8.4%       8.2%      12.2%      15.0%      19.7%      20.1% ← V52.DD.OTM
+ 2001   25.3       9.0%      11.3%       8.9%      13.9%      16.7%      22.6%      23.2% ← V52.DD.OTM
+ 2002   24.3       9.8%      13.1%       9.2%      15.4%      17.3%      23.5%      24.1% ← V52.DD.OTM
+ 2003   23.3      11.3%      15.9%      10.0%      17.7%      18.0%      24.5%      25.1% ← V52.DD.OTM
+ 2004   22.3      10.7%      14.8%       9.6%      16.7%      17.3%      23.4%      24.0% ← V52.DD.OTM
+ 2005   21.3      10.8%      15.1%      10.2%      17.6%      18.2%      24.7%      25.5% ← V52.DD.OTM
+ 2006   20.3      10.9%      15.6%      10.6%      17.7%      18.4%      25.0%      26.0% ← V52.DD.OTM
+ 2007   19.3      10.8%      16.2%      10.4%      17.6%      18.4%      24.9%      26.0% ← V52.DD.OTM
+ 2008   18.3      11.2%      16.1%      11.2%      19.9%      20.7%      28.7%      30.0% ← V52.DD.OTM
+ 2009   17.3      14.6%      20.5%      11.7%      20.9%      21.8%      30.3%      31.6% ← V52.DD.OTM
+ 2010   16.3      14.0%      18.8%      11.2%      17.8%      18.7%      25.5%      27.0% ← V52.DD.OTM
+ 2011   15.3      14.0%      18.7%      12.1%      18.8%      18.5%      25.1%      26.6% ← V52.DD.OTM
+ 2012   14.3      14.8%      19.9%      13.1%      22.1%      20.8%      28.9%      30.3% ← V52.DD.OTM
+ 2013   13.3      14.7%      19.9%      13.1%      22.1%      20.0%      27.5%      29.1% ← V52.DD.OTM
+ 2014   12.3      13.7%      19.0%      12.0%      19.5%      17.2%      23.0%      24.8% ← V52.DD.OTM
+ 2015   11.3      13.6%      18.9%      12.3%      20.1%      17.6%      23.5%      25.5% ← V52.DD.OTM
+ 2016   10.3      15.0%      20.1%      12.8%      22.7%      20.6%      28.1%      30.4% ← V52.DD.OTM
+ 2017    9.3      15.1%      21.2%      13.1%      22.8%      20.5%      27.7%      30.3% ← V52.DD.OTM
+ 2018    8.3      14.3%      19.8%      12.1%      20.4%      17.9%      23.3%      26.2% ← V52.DD.OTM
+ 2019    7.3      17.3%      23.0%      15.1%      27.5%      23.1%      31.6%      35.2% ← V52.DD.OTM
+ 2020    6.3      15.0%      20.4%      15.7%      26.0%      22.9%      31.1%      35.5% ← V52.DD.OTM
+ 2021    5.3      14.9%      16.4%      15.9%      25.2%      23.8%      32.7%      32.9% ← V52.DD.OTM
+ 2022    4.3      11.5%      13.4%      12.8%      17.5%      15.9%      19.8%      20.3% ← V52.DD.OTM
+ 2023    3.3      22.7%      33.2%      16.2%      34.4%      33.6%      47.8%      48.2% ← V52.DD.OTM
+ 2024    2.3      21.3%      25.4%      18.1%      36.1%      36.1%      51.6%      52.9% ← V52.DD.OTM
+ 2025    1.3      18.3%      23.9%      11.2%      26.2%      26.2%      35.8%      38.8% ← V52.DD.OTM
+──────────────────────────────────────────────────────────────────────────────────────────
 ```
 
 **Key findings:**
 
-- **V52.DD12 wins all 26 vintages (26/26).** The higher compounding rate of 3× leverage overwhelms all other strategies at every time horizon tested — including the bear-market windows where dot-com/GFC exposure is most severe.
-- **V51.DD12 wins 2000–2009 over V51 (+2.4–5pp CAGR).** For 2010+ starts, V51 pulls ahead of V51.DD12 (no dot-com/GFC drag; guard costs re-entry in secular bull). V52.DD12 wins both windows.
-- **V52.DD12 margin over V51.DD12**: +4–6pp CAGR for early starts (2000–2009), +4–9pp for late starts (2019–2023). The extra CAGR compounds aggressively in long windows.
-- **The 51.5% MaxDD of V52.DD12 is the price.** For any start year, the portfolio will see deeper drawdowns (~40–50%) compared to V51.DD12 (~35%). Vintage CAGR doesn't capture intra-period pain.
+- **V52.DD.OTM wins all 26 vintages (26/26).** The put overlay adds 0.3–3.6pp CAGR over V52.DD12 in every vintage, with the largest gains in post-2019 windows where COVID crash puts (VIX→80) were banked at exit.
+- **V52.DD.OTM margin over V52.DD12**: +0.4pp from 2000 start, growing to +3.9pp from 2019 and +4.4pp from 2020. Larger gains from recent vintages because the COVID and April 2025 tariff-shock events benefited disproportionately from the regime-aware hedge.
+- **V51.DD12 wins 2000–2009 over V51 (+2.4–5pp CAGR).** For 2010+ starts, V51 pulls ahead of V51.DD12 (guard costs re-entry in secular bull). V52.DD.OTM wins both windows.
+- **The 51.6% MaxDD of V52.DD.OTM is unchanged from V52.DD12.** Vintage CAGR doesn't capture intra-period pain. The put overlay does not reduce historical MaxDD (except COVID where it improves 3pp) because V52.DD12 already exits before most drawdown accumulates.
 - **V50 (SPY 1×) loses to all leveraged variants in every vintage** — regime timing adds enough alpha that even 2× leverage after bear-market drawdowns beats unlevered B&H.
 
 Script: `backtest/chart_vintage.py`. Chart: `docs/chart_vintage.png`.
@@ -86,44 +136,45 @@ Script: `backtest/chart_vintage.py`. Chart: `docs/chart_vintage.png`.
 Each cell is the return for that calendar year only (Jan 1 → Dec 31). 2025 is partial (through 2026-05-02). Best strategy per year marked with ←.
 
 ```
-Year        SPY        QQQ        V50        V51   V51.DD12   V52.DD12
-──────────────────────────────────────────────────────────────────────
-2000      -8.8%     -38.4%      -8.8%     -22.7%     -20.7%     -35.7% ← V50
-2001     -10.1%     -27.2%       1.8%     -19.4%       3.4%       3.4% ← (tie DD12=V52)
-2002     -22.4%     -39.2%      -7.0%     -27.6%       1.6%       1.6% ← (tie DD12=V52)
-2003      24.2%      43.6%      18.1%      38.0%      31.8%      48.8% ← V52.DD12
-2004      10.7%      10.8%      -1.4%       3.2%       2.5%       1.8% ← QQQ
-2005       5.3%       2.6%       2.1%      13.1%      13.1%      17.0% ← V52.DD12
-2006      13.8%       4.8%      13.7%      19.0%      19.0%      26.7% ← V52.DD12
-2007       5.3%      18.8%      -4.0%     -17.8%     -17.8%     -28.3% ← QQQ
-2008     -36.2%     -40.8%       2.7%       4.5%       3.8%       4.9% ← V52.DD12
-2009      22.7%      48.3%      20.8%      83.5%      83.5%     137.9% ← V52.DD12
-2010      13.1%      18.4%      -1.1%       3.5%      22.7%      31.5% ← V52.DD12
-2011       0.9%       1.9%      -2.3%     -20.1%     -10.7%     -18.5% ← QQQ
-2012      14.2%      15.9%      13.0%      22.6%      33.0%      50.2% ← V52.DD12
-2013      29.0%      32.4%      28.1%      60.2%      60.2%      99.2% ← V52.DD12
-2014      14.6%      20.1%      10.2%      17.3%      17.3%      24.5% ← V52.DD12
-2015       1.3%       9.8%       8.1%      -3.5%      -9.0%     -15.9% ← QQQ
-2016      13.6%       9.4%       8.9%      20.0%      20.0%      29.8% ← V52.DD12
-2017      20.8%      31.5%      20.9%      42.5%      42.5%      68.2% ← V52.DD12
-2018      -5.2%      -1.8%      -6.7%     -16.6%     -13.7%     -23.5% ← QQQ
-2019      31.1%      38.4%      12.4%      39.4%      25.9%      37.7% ← V51
-2020      17.2%      46.0%      13.5%      28.9%      16.7%      20.6% ← QQQ
-2021      30.5%      29.2%      30.4%      64.8%      64.8%     106.7% ← V52.DD12
-2022     -18.6%     -33.2%       2.4%     -24.8%     -27.8%     -40.4% ← V50
-2023      26.7%      55.9%      12.7%      32.6%      30.1%      42.5% ← QQQ
-2024      25.6%      27.7%      26.3%      46.9%      46.9%      69.3% ← V52.DD12
-2025      18.0%      21.0%      13.0%      24.8%      24.8%      33.7% ← V52.DD12
-──────────────────────────────────────────────────────────────────────
+Year        SPY        QQQ        V50        V51   V51.DD12   V52.DD12  V52.DD.OTM
+───────────────────────────────────────────────────────────────────────────────────
+2000      -8.8%     -38.4%      -8.8%     -22.7%     -20.7%     -35.7%     -36.1% ← V50
+2001     -10.1%     -27.2%       1.8%     -19.4%       3.4%       3.4%       3.4% ← V51.DD12
+2002     -22.4%     -39.2%      -7.0%     -27.6%       1.6%       1.6%       1.6% ← V51.DD12
+2003      24.2%      43.6%      18.1%      38.0%      31.8%      48.8%      47.8% ← V52.DD12
+2004      10.7%      10.8%      -1.4%       3.2%       2.5%       1.8%       0.3% ← QQQ
+2005       5.3%       2.6%       2.1%      13.1%      13.1%      17.0%      14.2% ← V52.DD12
+2006      13.8%       4.8%      13.7%      19.0%      19.0%      26.7%      24.1% ← V52.DD12
+2007       5.3%      18.8%      -4.0%     -17.8%     -17.8%     -28.3%     -28.5% ← QQQ
+2008     -36.2%     -40.8%       2.7%       4.5%       3.8%       4.9%       4.6% ← V52.DD12
+2009      22.7%      48.3%      20.8%      83.5%      83.5%     137.9%     136.0% ← V52.DD12
+2010      13.1%      18.4%      -1.1%       3.5%      22.7%      31.5%      33.3% ← V52.DD.OTM
+2011       0.9%       1.9%      -2.3%     -20.1%     -10.7%     -18.5%     -16.8% ← QQQ
+2012      14.2%      15.9%      13.0%      22.6%      33.0%      50.2%      48.7% ← V52.DD12
+2013      29.0%      32.4%      28.1%      60.2%      60.2%      99.2%      97.2% ← V52.DD12
+2014      14.6%      20.1%      10.2%      17.3%      17.3%      24.5%      23.8% ← V52.DD12
+2015       1.3%       9.8%       8.1%      -3.5%      -9.0%     -15.9%     -15.4% ← QQQ
+2016      13.6%       9.4%       8.9%      20.0%      20.0%      29.8%      28.8% ← V52.DD12
+2017      20.8%      31.5%      20.9%      42.5%      42.5%      68.2%      66.5% ← V52.DD12
+2018      -5.2%      -1.8%      -6.7%     -16.6%     -13.7%     -23.5%     -23.9% ← QQQ
+2019      31.1%      38.4%      12.4%      39.4%      25.9%      37.7%      36.6% ← V51
+2020      17.2%      46.0%      13.5%      28.9%      16.7%      20.6%      47.2% ← V52.DD.OTM  ◄ COVID hedge banked
+2021      30.5%      29.2%      30.4%      64.8%      64.8%     106.7%     104.3% ← V52.DD12
+2022     -18.6%     -33.2%       2.4%     -24.8%     -27.8%     -40.4%     -39.9% ← V50
+2023      26.7%      55.9%      12.7%      32.6%      30.1%      42.5%      41.4% ← QQQ
+2024      25.6%      27.7%      26.3%      46.9%      46.9%      69.3%      67.7% ← V52.DD12
+2025      18.0%      21.0%      13.0%      24.8%      24.8%      33.7%      38.0% ← V52.DD.OTM  ◄ tariff-shock hedge
+───────────────────────────────────────────────────────────────────────────────────
 ```
 
 **Key findings:**
 
-- **Bear years (2000–2002, 2008, 2022): the gate parks in cash earning T-bills.** V51.DD12 and V52.DD12 earn +3.4% in 2001 and +1.6% in 2002 (fully in cash at T-bill rates) while SPY lost 10%/22%. In 2008 both earn ~4–5% (exited early, T-bills at ~2%). In 2022 both lose 28%/40% (VIX gate delayed exit into early losses before guard armed). V50 best in 2022 (+2.4%) — no VIX gate, whipsawed out early.
-- **Bull years: V52.DD12 dominates by a wide margin.** 2009: +138%, 2013: +99%, 2021: +107% vs V51.DD12's 83%, 60%, 65%. The 3× compounding in strong up-years is the engine of the terminal wealth advantage.
-- **QQQ wins 6 years** (2004, 2007, 2011, 2015, 2018, 2020, 2023) — mostly years where SPY underperforms tech or V51/V52 are exiting early and missing a late-year rally. In 2020 QQQ +46% vs V52.DD12 +21% (COVID crash then recovery while guard was still armed).
-- **2001–2002: tied at 0%.** Both V51.DD12 and V52.DD12 are in cash for two full years — the exit-DD guard armed after the deep 2001 exits and kept them out through the bottom. This is the exact protection the guard was designed to provide.
-- **V52.DD12's worst single year: 2022 (−41.5%).** The guard eventually exits but not before a large drawdown. Compare V50 at +0.5% — the 1× regime-only strategy was the best in 2022.
+- **V52.DD.OTM wins 2020 decisively (+47.2% vs +20.6% for V52.DD12).** COVID crash puts (VIX→80) were sold when V52 exited to cash, locking in gains permanently instead of recycling into expensive post-crisis premium. This is the clearest example of the regime-aware hedge paying off.
+- **V52.DD.OTM wins 2025 (+38.0% vs +33.7%).** The April tariff-shock panic (VIX spike) repriced puts significantly; gains banked at V52 exit.
+- **Bear years (2000–2002, 2008, 2022): V51.DD12 and V52.DD12 park in cash earning T-bills.** Both earn +3.4% in 2001 and +1.6% in 2002 (fully in cash) while SPY lost 10%/22%. V52.DD.OTM matches these in cash years (no active puts while in cash).
+- **Bull years: V52.DD12 dominates by a wide margin.** 2009: +138%, 2013: +99%, 2021: +107% vs V51.DD12's 83%, 60%, 65%. V52.DD.OTM is slightly behind V52.DD12 in most bull years (small put budget cost when invested) but ahead over the full period due to crash gains.
+- **QQQ wins 8 years** (2004, 2007, 2011, 2015, 2018, 2019, 2023, QQQ domination). V52.DD.OTM wins 2010, 2020, 2025.
+- **V52.DD12/OTM worst single year: 2022 (−40%).** The guard eventually exits but not before a large drawdown. V50 best in 2022 (+2.4%) — no VIX gate, whipsawed out early.
 
 Script: `backtest/chart_annual.py`. Chart: `docs/chart_annual.png`.
 
