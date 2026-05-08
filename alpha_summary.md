@@ -180,6 +180,39 @@ Script: `backtest/chart_annual.py`. Chart: `docs/chart_annual.png`.
 
 ---
 
+## Project Update — 2026-05-06 (Fill Model Comparison: MOO vs Limit+1% vs Strict-Limit)
+
+**Question:** The live runner uses a marketable limit at close[T] × 1.01 for entries. Recent gap-up days (UPRO +1.5–1.8%) have blown through this buffer. Would switching to MOO improve performance?
+
+**Setup:** Real UPRO data only (2009-06-25 → 2026-05-01, $100k start). Three fill models tested against V52.DD12 signal:
+- **MOO** — always fill at open[T+1]
+- **Limit+1%** — fill at open if open ≤ close×1.01, else at limit if intraday touch, else retry (current backtest default and live runner)
+- **Strict-Limit** — fill only if open[T+1] ≤ close[T], no intraday touch (stricter than live runner; historical baseline)
+
+**Results — V52.DD12 equity only:**
+
+| Model | CAGR | MaxDD | End $100k | Entry miss rate |
+|---|---|---|---|---|
+| MOO | 30.9% | 51.8% | $9.3M | 0% |
+| Limit+1% (live runner) | 31.3% | 46.5% | $9.9M | — |
+| Strict-Limit | 30.4% | 51.3% | $8.8M | 48% |
+
+**Results — V52.DD.OTM (equity + put hedge):**
+
+| Model | CAGR | MaxDD | End $100k |
+|---|---|---|---|
+| MOO + hedge | 32.9% | 51.1% | $12.1M |
+| **Limit+1% + hedge** | **33.2%** | **46.6%** | **$12.6M** |
+| Strict-Limit + hedge | 32.4% | 47.3% | $11.4M |
+
+**Key finding:** Limit+1% beats MOO by +0.3pp CAGR and +5pp MaxDD on both the equity-only and hedged variants. The mechanism is counterintuitive: when a gap-up exceeds 1% and the intraday low never touches the limit, the strategy stays in cash that day — and those are often days when UPRO opens extended and mean-reverts intraday. MOO buys into every extended open; Limit+1% skips the ones that don't pull back.
+
+**Entry miss rate in simulation (2009–2026):** 36 of 75 entry signals (48%) missed on the first attempt under strict-limit. Limit+1% recovers most of these via intraday condition B. The remaining misses (gaps > 1% with no intraday touch) are exactly the ones that produce better outcomes by sitting out.
+
+**Conclusion:** Current live runner behavior (Limit+1%) is validated. No change to fill model.
+
+---
+
 ## Project Update — 2026-05-05 (Nuclear Bunker: Synthetic 1% SPX Put Overlay)
 
 **Hypothesis:** Allocating 1%/year of portfolio NAV to deep OTM (30%) SPX puts — priced via Black-Scholes with a 1.3× VIX skew adjustment — provides insurance against an overnight gap-down while the strategy is invested.
