@@ -68,3 +68,9 @@
 - First paper run: no prior position or DB state; EOD correctly generated BUY from flat
 - Morning runner submits equity + options; EOD runner generates signal + pending orders
 - Reconciliation: EOD syncs IBKR positions before building orders (prevents duplicate buys)
+
+---
+
+## Open To-Dos
+
+- [ ] **Get XSP options permissions on IBKR paper account** — call/chat IBKR support, ask to enable index options (XSP) on the `mixairaalgo` paper account. Once enabled, switch `INSTRUMENT` back from `'SPY'` to `'XSP'` in `live/runner_morning.py`. SPY puts are physically settled (American style) and can create a short SPY position at expiry if ITM — not allowed in an IRA. XSP is cash-settled (European style) and is the correct instrument for IRA deployment.
