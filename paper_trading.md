@@ -21,7 +21,7 @@
 
 | Date | Ticker | Shares | Entry Price | Stop | Status |
 |------|--------|--------|-------------|------|--------|
-| — | — | — | — | — | Flat (awaiting first fill) |
+| 2026-05-08 | UPRO | 735 | $137.38 limit | — | Submitted (DAY, orderId=6) |
 
 ---
 
@@ -49,9 +49,16 @@
 - `ReadOnlyApi=no` restored in `mixa.ini`
 - Gateway verified accepting orders (Error 321 cleared)
 
-**Tomorrow (2026-05-08) morning runner at 9:40 ET will:**
-1. Submit pending BUY 735 UPRO @ $137.38 (marketable limit)
-2. ENTER XSP put overlay: ~90 DTE (Aug expiry), budget ~$164
+---
+
+### 2026-05-08 — Morning runner
+
+**Morning Runner (9:40 ET)**
+- UPRO equity: BUY 735 @ $137.38 limit submitted (orderId=6, status=Submitted) ✓
+- Options: XSP P 515.5 Aug-21 rejected — Error 200, no security definition
+  - Root cause: `mixairaalgo` paper account has no XSP index options permissions
+  - Fallback price worked: SPX/10 = 737.10 (yfinance fallback, IBKR data not subscribed)
+  - Contract spec is correct; will work once permissions enabled
 
 ---
 
@@ -60,6 +67,7 @@
 | Date | Signal | VIX rank | DD | MACD | Action | UPRO px |
 |------|--------|----------|----|------|--------|---------|
 | 2026-05-07 | UPRO | 20.5% | −0.3% | +1.36 | BUY pending | $136.02 |
+| 2026-05-08 | — | — | — | — | Equity submitted; options blocked | $137.38 |
 
 ---
 
