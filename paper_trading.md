@@ -63,7 +63,7 @@
 **Post-market fix (same day)**
 - XSP options permissions confirmed working via `reqContractDetails` (198 contracts, Aug-21)
 - `MIN_STRIKE_STEP` corrected to 5.0; XSP P 515.0 Aug-21 qualified successfully ✓
-- Runner ready for full dual-leg execution tomorrow morning
+- Runner ready for full dual-leg execution Monday 2026-05-11
 
 ---
 
