@@ -51,14 +51,19 @@
 
 ---
 
-### 2026-05-08 — Morning runner
+### 2026-05-08 — Morning runner + strike step fix
 
 **Morning Runner (9:40 ET)**
 - UPRO equity: BUY 735 @ $137.38 limit submitted (orderId=6, status=Submitted) ✓
 - Options: XSP P 515.5 Aug-21 rejected — Error 200, no security definition
-  - Root cause: `mixairaalgo` paper account has no XSP index options permissions
-  - Fallback price worked: SPX/10 = 737.10 (yfinance fallback, IBKR data not subscribed)
-  - Contract spec is correct; will work once permissions enabled
+  - Root cause: `MIN_STRIKE_STEP = 0.50` produced strike 515.5; XSP uses $5 increments at 30% OTM (valid nearby: 510, 515, 520, 525)
+  - Permissions were fine all along — XSP options visible, 198 contracts listed for Aug-21
+  - Fix: `MIN_STRIKE_STEP = 5.0` → strike 515.0, qualifies cleanly (conId=853518536)
+
+**Post-market fix (same day)**
+- XSP options permissions confirmed working via `reqContractDetails` (198 contracts, Aug-21)
+- `MIN_STRIKE_STEP` corrected to 5.0; XSP P 515.0 Aug-21 qualified successfully ✓
+- Runner ready for full dual-leg execution tomorrow morning
 
 ---
 
@@ -81,4 +86,5 @@
 
 ## Open To-Dos
 
-- [ ] **Get XSP options permissions on IBKR paper account** — call/chat IBKR support, ask to enable index options (XSP) on the `mixairaalgo` paper account. Runner is already coded for XSP (CBOE, European cash-settled). SPY puts are physically settled (American style) — if a put expires ITM with no shares held, you're short SPY, which is not allowed in an IRA. XSP settles to cash, no shares involved.
+- [x] **XSP options permissions confirmed (2026-05-08)** — 198 contracts visible for Aug-21 expiry; permissions were always enabled. Root issue was `MIN_STRIKE_STEP = 0.50` requesting invalid strike 515.5; fixed to 5.0 (XSP uses $5 increments at 30% OTM). Both legs ready to execute.
+- [ ] **XSP market data subscription** — IBKR returns Error 354 (not subscribed) for live XSP index price. Fallback to SPX/10 via yfinance works correctly. Optional: subscribe to CBOE index data in Market Data Subscription Manager to get live XSP prices without fallback.
