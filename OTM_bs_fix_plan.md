@@ -293,9 +293,9 @@ adjusted_cagr, adjusted_maxdd = compute_stats(adjusted_equity_curve)
 Report side by side:
 | Metric | V52.DD12 (no overlay) | + Overlay (BS) | + Overlay (historical bid/ask) |
 |---|---|---|---|
-| CAGR | 19.1% | ? | ? |
-| MaxDD | 51.5% | ? | ? |
-| Calmar | ? | ? | ? |
+| CAGR | 19.66% | 20.14% | 19.03% |
+| MaxDD | −51.51% | −51.64% | −51.63% |
+| Calmar | 0.382 | 0.390 | 0.369 |
 
 This is the primary output: does the overlay improve Calmar (CAGR/MaxDD) after realistic costs?
 
@@ -333,3 +333,83 @@ This is the primary output: does the overlay improve Calmar (CAGR/MaxDD) after r
    a full vol-surface model. It captures the magnitude of blowout but not the precise
    smile shape. This is adequate for sizing the bias correction; it is not a production
    pricing engine.
+
+---
+
+## 10. Results (run 2026-05-09)
+
+Script: `backtest/run_otm_bs_fix.py` | Output: `backtest/results/otm_bs_fix_20260509/`
+
+### 10a. Equity Curve Comparison
+
+| Scenario | CAGR | MaxDD | Calmar | End $100k |
+|---|---|---|---|---|
+| V52.DD12 (no overlay) | 19.66% | −51.51% | 0.382 | $9,939k |
+| + Overlay (BS model) | 20.14% | −51.64% | **0.390** | $12,530k |
+| + Overlay (historical mid) | 19.06% | −51.63% | 0.369 | $9,878k |
+| + Overlay (hist bid/ask + stress) | 19.03% | −51.63% | 0.369 | $9,818k |
+
+**The BS model overstates the overlay value by ~1.1pp CAGR.** BS makes the hedge look
+mildly beneficial (Calmar 0.390 vs no-overlay 0.382). Historical pricing shows the
+overlay is a net drag (Calmar 0.369 < 0.382). The overlay does not improve
+risk-adjusted returns at realistic prices and execution.
+
+### 10b. Skew Gap
+
+Average skew gap across ENTER/ROLL events with historical data: **+$0.78 XSP per
+event** (historical ask − BS price). This confirms Bias 1: BS underprices entry cost
+by $0.78/XSP contract on average. At $100 per contract (×100 multiplier), that's
+roughly $78 per contract overstated cheapness per purchase event.
+
+### 10c. Coverage
+
+22 of 298 total events (7%) priced with historical XSP chain data. The remaining 93%
+fall back to BS and are labeled "BS proxy" in `summary.csv`. The low coverage reflects
+that most V52.DD12 ENTER/ROLL/EXIT events occurred in 2000–2018, before any XSP chain
+data is available. Events in 2019 (10 months) and 2023–2026 have historical pricing.
+
+### 10d. COVID 2020 Exit Case Study
+
+V52.DD12 exited on **2020-02-27** (SPY $271.88, VIX 39.2).
+
+The overlay put purchased in approximately November 2019 would have had strike K ≈ $220
+(30% OTM of SPY ~$315 at purchase). At exit:
+
+| Strike | Bid | Ask | Spread | Stressed bid |
+|---|---|---|---|---|
+| $220 (Nov 2019 purchase) | $0.50 | $0.54 | 7.7% | $0.462 |
+| $190 (30% OTM at exit date) | $0.18 | $0.20 | 10.5% | $0.166 |
+
+**The overlay provided near-zero protection during the COVID crash.** At regime close
+(SPY $272), the $220 put was still 19% OTM — worth only $0.50 per share ($50 per
+contract). The crash would have needed to reach SPY < $220 (−32% from the Jan 2020
+high) before the puts became meaningful. V52 exits at regime close (SPY crosses SMA200),
+which typically happens at modest declines. The puts are too far OTM to pay out at the
+trigger point.
+
+This is the structural limitation of the 30% OTM overlay design: it insures against
+catastrophic crashes, but V52 regime exits happen well before catastrophic crashes. The
+puts expire nearly worthless on the sell side while carrying ongoing premium cost.
+
+### 10e. SKIP_SELL Fires
+
+13 ROLL events had bid < $0.02 XSP (skip-sell threshold). The $0.02 threshold is set
+correctly — these are near-worthless positions where the sell proceeds would not cover
+transaction friction. Value abandoned per skip was near zero.
+
+### 10f. Stress Calibration (SPY 2020)
+
+SPY 2020 deep OTM put bid-ask spreads by VIX level (20–40% OTM range, bid > 0 only):
+
+| VIX range | Median spread % of mid |
+|---|---|
+| 10–20 | 66.7% (few data points, illiquid low-VIX OTM) |
+| 20–30 | 13.3% |
+| 30–45 | 15.4% |
+| 45–60 | 17.1% |
+| 60+ | 9.9% |
+
+The VIX 10–20 bucket is unreliable (very few observations; deep OTM puts in Jan 2020
+had near-zero bids). The VIX 30–60 buckets are actionable: 15–17% spread at the stress
+levels where V52 exits. Haircut applied to bid = bid × (1 − spread_pct/2) ≈ 7–8%
+reduction. This is a second-order effect on the aggregate result.
