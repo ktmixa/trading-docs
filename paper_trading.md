@@ -73,4 +73,4 @@
 
 ## Open To-Dos
 
-- [ ] **Get XSP options permissions on IBKR paper account** — call/chat IBKR support, ask to enable index options (XSP) on the `mixairaalgo` paper account. Once enabled, switch `INSTRUMENT` back from `'SPY'` to `'XSP'` in `live/runner_morning.py`. SPY puts are physically settled (American style) and can create a short SPY position at expiry if ITM — not allowed in an IRA. XSP is cash-settled (European style) and is the correct instrument for IRA deployment.
+- [ ] **Get XSP options permissions on IBKR paper account** — call/chat IBKR support, ask to enable index options (XSP) on the `mixairaalgo` paper account. Runner is already coded for XSP (CBOE, European cash-settled). SPY puts are physically settled (American style) — if a put expires ITM with no shares held, you're short SPY, which is not allowed in an IRA. XSP settles to cash, no shares involved.
