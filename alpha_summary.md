@@ -15,10 +15,12 @@
 | V50 (SPY 1×, regime only) | 8.1% | 27.0% | 0.30 | 27.0% | 17.6% | 13.8% | — | — |
 | V51 (SSO 2×, regime only) | 11.9% | 65.7% | 0.18 | 65.7% | 40.3% | 22.9% | — | — |
 | V51.DD12 (2× + DD guard) | 14.7% | 35.6% | 0.41 | 35.6% | 30.8% | 22.9% | 27.8% | $3,668k |
-| V52.DD12 (3× + DD guard) | 19.1% | 51.5% | 0.37 | 39.7% | 34.8% | 32.4% | 40.4% | $9,939k |
-| **V52.DD.OTM** ← champion | **20.1%** | **51.6%** | **0.39** | **39.5%** | **34.8%** | **29.7%** | **39.9%** | **$12,530k** |
+| **V52.DD12 (3× + DD guard)** ← champion | **19.66%** | **51.5%** | **0.382** | **39.7%** | **34.5%** | **32.7%** | **40.4%** | **$9,939k** |
+| ~~V52.DD.OTM (overlay, dropped)~~ | ~~20.1%~~ | ~~51.6%~~ | ~~0.39~~ | — | — | — | — | ~~$12,530k~~ |
 
-**V52.DD.OTM** is V52.DD12 + Nuclear Bunker v2 regime-aware put overlay (see section below for full specification). It is the current research champion. 2026-05-05.
+**V52.DD12** is the current research champion as of 2026-05-09. The XSP put overlay (V52.DD.OTM) was dropped after historical-price backtesting revealed it is net negative at realistic costs. See `docs/OTM_bs_fix_plan.md §10` for the full analysis.
+
+**Why the overlay was dropped:** BS pricing overstated overlay value by ~1.1pp CAGR (Calmar 0.390 BS vs 0.369 actual vs 0.382 no-overlay). Structural mismatch: V52 exits at regime close (SPY < SMA200), which typically happens at modest declines (~10–15%). 30% OTM puts are still 15–20% OTM at that trigger point — near zero value on exit. The overlay insures against catastrophic crashes that V52 exits early enough to avoid anyway. Premium drag without commensurate payout.
 
 2006–2026 (real SSO/UPRO): V51.DD12 CAGR **~20.3%**. V52.DD12 uses synthetic UPRO anchored 2009-06-25.
 V51.R 2006–26: CAGR **~22.8%**. V51.SC 2006–26: CAGR **~21.1%**. *(T-bill cash yield fix applied 2026-05-04.)*
@@ -32,11 +34,11 @@ V51.R 2006–26: CAGR **~22.8%**. V51.SC 2006–26: CAGR **~21.1%**. *(T-bill ca
 
 ---
 
-## V52.DD.OTM — Champion Strategy Specification
+## V52.DD.OTM — Dropped Strategy (was champion 2026-05-05 → 2026-05-09)
 
-**Declared champion: 2026-05-05. CAGR 20.1% | MaxDD 51.6% | End value $12,530k (from $100k, 2000–2026).**
+**Dropped 2026-05-09.** BS pricing overstated Calmar by ~0.021 (0.390 BS vs 0.369 actual). Overlay hurts risk-adjusted returns vs V52.DD12 standalone. See `docs/OTM_bs_fix_plan.md §10`.
 
-V52.DD.OTM is a two-component strategy: the V52.DD12 equity engine plus a regime-aware deep-OTM put overlay that converts crash volatility gains into permanent alpha rather than recycling them into expensive post-crisis premium.
+V52.DD.OTM was V52.DD12 + regime-aware deep-OTM put overlay. The overlay analysis is retained below for reference.
 
 ### Component 1: V52.DD12 (equity engine)
 
