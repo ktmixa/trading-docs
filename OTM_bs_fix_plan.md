@@ -29,37 +29,32 @@ on exit than modeled.
 
 ## 2. Data Sources
 
-### 2a. SPX Monthly Option Chains (primary pricing source)
+### 2a. XSP Monthly Option Chains (primary pricing source)
 
-**Location:** `/home/brewadmin/projects/trading/data/options_data/SPX_*_eod.parquet`
+**Location:** `/home/brewadmin/projects/trading/data/options_data/XSP_*_eod.parquet`
 
-**Coverage:** 42 monthly expiries, January 2023 → June 2026.
+**Coverage:** 39 monthly expiries, January 2023 → April 2026.
 
 **Structure:** One file per expiry date. Each file contains daily EOD snapshots
-(`created` column) from approximately 60 days before expiry through expiry day —
-roughly 40–44 snapshots per expiry. Columns include `strike`, `right`, `bid`, `ask`,
-`volume`, `count` per snapshot.
+(`created` column) from approximately 88–92 days before expiry through expiry day.
+Columns include `strike`, `right`, `bid`, `ask`, `volume`, `count` per snapshot.
 
-**Strike range:** 200–7200 (full chain). Covers 30% OTM puts across the full SPX range
-for the period.
+**Snapshot depth advantage:** XSP files capture 88–92 DTE on first snapshot, covering the
+90-DTE entry window directly. SPX files only reach ~60 DTE on first snapshot — XSP chains
+are used preferentially because they eliminate any DTE extrapolation at entry.
 
-**SPX → XSP conversion:**
-XSP = SPX / 10 exactly (same index, different scale). To price an XSP put:
-
-```
-xsp_underlying  = spx_close / 10
-xsp_strike      = spx_strike / 10          # e.g. SPX 2800 → XSP 280
-xsp_option_price = spx_option_price / 10   # e.g. SPX ask $3.00 → XSP ask $0.30
-```
-
-Dollar cost per contract is equivalent: 1 SPX contract (×100) = 10 XSP contracts (×100)
-for the same notional protection.
+**Strike range:** XSP $5 increments at 30% OTM. For example, at XSP 560, target strike is
+560 × 0.70 = 392 → rounded to 390.
 
 **Market regimes covered:**
 - 2023: post-rate-hike rally, VIX declining from 20→13
 - 2024: rate-cut cycle, low-vol bull
 - 2025: tariff shock (April 2025), VIX spike to 52
 - 2026: partial recovery
+
+**SPX chains** (`SPX_*_eod.parquet`, 42 expiries) are available as a cross-check and
+fallback if a specific XSP strike/date is missing. SPX prices divide by 10 to get XSP
+equivalent (same index, different scale).
 
 ### 2b. SPY Weekly Option Chains — COVID Stress Period
 
@@ -92,27 +87,25 @@ This is the ground truth for stress execution friction. It will be used to:
 
 ---
 
-## 3. Known Data Gap and How to Handle It
+## 3. Coverage Scope and Pre-2023 Fallback
 
-**The gap:** SPX chain files start capturing ~60 DTE before each monthly expiry. Our
-strategy buys 90-DTE puts. The 90→60 DTE window is not directly observable.
+**Historical pricing applies to 2023–2026 only.** XSP monthly chain files begin
+January 2023. The V52.DD12 backtest starts 2000 (synthetic SSO pre-inception) and runs to
+present. Any ENTER/ROLL/EXIT events before January 2023 have no observable XSP bid/ask and
+remain on Black-Scholes pricing (σ = VIX/100 × 1.3). These are clearly labeled "BS proxy"
+in all output tables.
 
-**Effect:** Using the 60-DTE snapshot as the entry price understates true entry cost, since
-the put carries more time value at 90 DTE than at 60 DTE. This leaves a residual optimistic
-bias even after the fix.
+**Snapshot depth:** XSP chain files capture 88–92 DTE snapshots per monthly expiry —
+sufficient to price a 90-DTE put directly at entry without extrapolation. The 60-DTE
+data-gap concern that would apply to SPX chains does not arise here. All ENTER prices are
+labeled "90-DTE actual" when an XSP snapshot within ±5 calendar days of 90 DTE is
+available; otherwise "nearest snapshot (N DTE)" with N stated.
 
-**Mitigation — three-part:**
-
-1. **Document the gap explicitly** in the output. Report the entry price as "≥60 DTE proxy"
-   not "90 DTE actual."
-
-2. **Estimate the correction** using Black-Scholes for the 90→60 DTE slice only: take
-   the actual IV implied by the 60-DTE market price (back-solve BS), then roll the clock
-   back 30 days using the same IV to get an approximate 90-DTE price. Report this adjusted
-   entry as a high-side bound.
-
-3. **Sensitivity range:** present results as a range — [60-DTE proxy cost, 90-DTE adjusted
-   cost] — so the reader sees the uncertainty without pretending it is zero.
+**Key coverage facts:**
+- XSP monthly chains: Jan 2023 → Apr 2026 (39 expiries, 88–92 DTE depth)
+- SPY weekly chains: Jan–Mar 2020 (49 files, COVID stress calibration)
+- ES 1-min bars: Dec 2018 → May 2026 (underlying price reference)
+- Pre-2023 V52.DD12 signal events: BS pricing only (labeled)
 
 ---
 
@@ -132,32 +125,35 @@ The simulation is driven by the V52.DD12 signal from the existing backtest outpu
 
 ### 4b. Strike Selection
 
-On any ENTER or ROLL-buy day, using SPX data:
+On any ENTER or ROLL-buy day:
 
 ```python
-spx_close = es_close  # from ES daily close, no ÷10 needed for SPX comparison
-target_spx_strike = floor(spx_close * 0.70 / 50) * 50   # SPX uses $25/$50 increments
-xsp_strike = target_spx_strike / 10
+xsp_close = es_close / 10      # ES close ÷ 10 ≈ XSP underlying
+target_xsp_strike = floor(xsp_close * 0.70 / 5.0) * 5.0   # XSP uses $5 increments at 30% OTM
 ```
 
-Then look up the matching row in the SPX chain file for the target expiry:
-`(expiration == target_expiry) & (strike == target_spx_strike) & (right == 'PUT') &
+Then look up the matching row in the XSP chain file for the target expiry
+(files at `/data/options_data/XSP_{expiry}_eod.parquet`):
+`(expiration == target_expiry) & (strike == target_xsp_strike) & (right == 'PUT') &
 (created.date() == observation_date)`.
+
+Select the snapshot with DTE closest to 90 (should be 88–92 DTE from the first available
+snapshot in the chain file). Record actual DTE in the output.
 
 ### 4c. Entry Execution Price (ENTER / ROLL-buy)
 
 ```python
-entry_px = spx_ask / 10        # convert to XSP
+entry_px = xsp_ask             # XSP price directly — no conversion needed
 entry_px += 0.05               # current runner's +$0.05 limit buffer, kept as-is
 ```
 
-If the observation date falls in the data gap (no snapshot at exactly 60+ DTE), use the
-earliest available snapshot with a note.
+For pre-2023 events where no XSP chain is available, fall back to BS pricing and label
+the event "BS proxy" in output.
 
 ### 4d. Exit Execution Price (EXIT / ROLL-sell)
 
 ```python
-exit_px = spx_bid / 10         # sell at bid, not mid
+exit_px = xsp_bid              # XSP bid directly — sell at bid, not mid
 ```
 
 In stress conditions (VIX > 30 at time of exit), apply a haircut to the observable bid
@@ -178,7 +174,7 @@ This matches the live runner exactly.
 On each HOLD day, look up the mid price for the current position:
 
 ```python
-mid = (spx_bid + spx_ask) / 2 / 10    # XSP mid
+mid = (xsp_bid + xsp_ask) / 2         # XSP mid directly
 position_value = contracts * mid * 100
 ```
 
@@ -255,15 +251,53 @@ Report three scenarios side by side:
 
 ## 7. Output Metrics
 
-For each scenario across the backtest period (2023–2026):
+### 7a. Per-Event Table (2023–2026 historical window)
 
-- **Annual overlay cost** ($ and % of NAV)
-- **Total premium spent** vs **total monetization proceeds**
-- **Net drag** on strategy CAGR
-- **Payout events**: which V52 exits coincided with put value > 2× cost (protection worked)
+For each ENTER/ROLL/EXIT event in the 2023–2026 window:
 - **Skew gap**: BS entry price vs actual ask, by VIX level
 - **Stress execution gap**: mid vs bid on exit, by VIX level
 - **SKIP_SELL fires**: count and $ abandoned
+
+### 7b. Named Case Study — COVID 2020 Exit
+
+The COVID crash exit (signal date ≈ 2020-02-27, SPY $271.88, estimated put strike ~190) is
+the canonical stress test of the overlay. This event lies outside the 2023–2026 historical
+window, so it stays on BS pricing for the entry cost — but SPY 2020 bid/ask data is
+available for the EXIT side (late February / early March 2020 weekly chains). Produce:
+
+- **SPY Feb 27 2020 chain lookup**: actual bid on the ~190 strike put for the nearest expiry
+- **Spread at exit**: observable SPY bid vs mid vs BS estimate on that date
+- **VIX at exit**: ~40 → apply stress calibration from Section 5
+- **Verdict**: did the overlay pay out (put value > 2× cumulative premium paid to that date)?
+
+Label this "COVID 2020 Exit Case Study" in `scenario_comparison.md`. It demonstrates the
+value of the stress execution model even where entry price must use BS.
+
+### 7c. Aggregate Overlay P&L and Equity Curve Integration
+
+Across the full backtest (2000–2026, pre-2023 on BS, 2023–2026 on historical):
+
+- **Annual overlay cost** ($ and % of NAV) — broken out by year
+- **Total premium spent** vs **total monetization proceeds**
+- **Net drag** on strategy CAGR
+- **Payout events**: which V52 exits coincided with put value > 2× cost
+
+Then integrate the overlay P&L into the V52.DD12 equity curve:
+
+```python
+# Each day: adjusted_nav = equity_nav + put_position_value - cumulative_premium_paid
+# On EXIT days: adjusted_nav reflects both equity gain/loss and put monetization
+adjusted_cagr, adjusted_maxdd = compute_stats(adjusted_equity_curve)
+```
+
+Report side by side:
+| Metric | V52.DD12 (no overlay) | + Overlay (BS) | + Overlay (historical bid/ask) |
+|---|---|---|---|
+| CAGR | 19.1% | ? | ? |
+| MaxDD | 51.5% | ? | ? |
+| Calmar | ? | ? | ? |
+
+This is the primary output: does the overlay improve Calmar (CAGR/MaxDD) after realistic costs?
 
 ---
 
@@ -280,9 +314,11 @@ For each scenario across the backtest period (2023–2026):
 
 ## 9. Limitations and Caveats
 
-1. **90-DTE entry gap**: All ENTER prices are 60-DTE proxies. Actual 90-DTE costs are
-   higher by the additional 30 days of time value. The BS correction estimate in Section 3
-   bounds the impact but does not eliminate the gap.
+1. **Pre-2023 events on BS**: Any ENTER/ROLL/EXIT before January 2023 uses BS pricing
+   (σ = VIX/100 × 1.3). The number of such events depends on V52.DD12 signal frequency
+   during 2000–2022. They are labeled but not corrected for skew or execution friction.
+   The COVID 2020 exit (Section 7b) is the most consequential pre-2023 event and receives
+   special treatment via SPY 2020 chain data on the exit side.
 
 2. **SPX vs XSP liquidity**: SPX options are more liquid than XSP. XSP bid-ask spreads
    may be slightly wider than SPX/10, particularly in stress. The SPY 2020 stress data
