@@ -19,9 +19,9 @@
 | **V52.DD12.VIX (+ VIX call overlay)** ← champion | **19.66%** | **51.6%** | **0.381** | **39.9%** | **34.6%** | **31.4%** | **42.0%** | **$11,268k** |
 | ~~V52.DD.OTM (XSP puts, dropped)~~ | ~~20.1%~~ | ~~51.6%~~ | ~~0.39~~ | — | — | — | — | ~~$12,530k (BS-inflated)~~ |
 
-**V52.DD12.VIX** is the current research champion as of 2026-05-10. VIX calls add +$1.33M terminal wealth (+13.4%) over V52.DD12 with essentially no CAGR or MaxDD change — the overlay is self-funding over 26 years (two threshold sells totalling $384k against $347k in premiums). It catches fast panics (COVID 2020: +18.7pp annual return boost; 2025 tariff shock: +2.3pp) while costing ~1% NAV per year in calm markets. Slow bears (GFC, dot-com) are handled by the regime exit; VIX calls expired OTM before VIX peaked in those events.
+**V52.DD12.VIX** is the current research champion as of 2026-05-10. The overlay is **gap-risk insurance at near-break-even historical cost**, not a demonstrated CAGR enhancer. Over 26 years the options were essentially self-financing ($384k proceeds, $347k premiums, net +$37k), with two threshold events in 230 months. The +$1.33M terminal-wealth difference rests on that thin sample and should not be extrapolated as edge. The rationale for deploying it is defensive: the strategy holds 3× leveraged UPRO with overnight gap-down risk that the EOD regime signal cannot hedge; VIX calls provide that insurance at documented near-zero historical cost.
 
-**Why VIX calls outperform XSP puts:** XSP puts were structurally mismatched — V52 exits at regime close when puts are still 15-20% OTM. VIX calls activate on *fear* before price levels matter, pay out within days of a panic spike (not months), and have narrowest bid-ask spreads precisely when VIX is highest. COVID case study: VIX threshold triggered March 9, 2020 (17 days after regime close); SPX put strategy would still have been OTM.
+**Why VIX calls, not XSP puts:** XSP puts were structurally mismatched — V52 exits at regime close when puts are still 15-20% OTM. VIX calls activate on *fear* before price levels matter, pay out within days of a panic spike (not months), and bid-ask spreads are narrowest precisely when VIX is highest (FEAR regime: 14% spread vs 28-55% in calm markets). COVID case study: VIX threshold triggered March 9, 2020 (17 days after regime close); XSP puts at that point were still OTM.
 
 2006–2026 (real SSO/UPRO): V51.DD12 CAGR **~20.3%**. V52.DD12 uses synthetic UPRO anchored 2009-06-25.
 V51.R 2006–26: CAGR **~22.8%**. V51.SC 2006–26: CAGR **~21.1%**. *(T-bill cash yield fix applied 2026-05-04.)*
@@ -90,6 +90,8 @@ Liquidity analysis (117 monthly XSP chain files, 2019-2026): at VIX > 40 (fear r
 | COVID MaxDD | 32.7% | 31.4% |
 | End $100k | $9,939k | $11,268k |
 
+CAGR and MaxDD are effectively unchanged. The end-value difference (+$1.33M) is a two-event result and should not be read as a demonstrated edge. The overlay is gap-risk insurance; its value is structural (covers overnight crash scenarios the EOD signal cannot), not statistical.
+
 **Threshold events triggered (2000-2026):** 2 events out of 230 monthly buys.
 
 | Date | VIX | Contracts | Proceeds |
@@ -97,10 +99,9 @@ Liquidity analysis (117 monthly XSP chain files, 2019-2026): at VIX > 40 (fear r
 | 2020-03-09 | 54.5 | 138 | $219,807 |
 | 2025-04-08 | 52.3 | 113 | $164,109 |
 
-Total premiums paid: $347k over 26 years. Total proceeds: $384k. Net option P&L: +$37k.
-GFC (VIX peak 80.9) produced no payout: V52 had been in cash for 12 months when VIX peaked — all 90-DTE calls had expired OTM long before the spike. Slow bears are handled by the regime exit; VIX calls cover fast panics only.
+Total premiums paid: $347k over 26 years. Total proceeds: $384k. Net option P&L: +$37k — essentially break-even.
 
-**2020 annual return: V52.DD12 +20.6% → V52.DD12.VIX +39.2% (+18.7pp)**
+GFC (VIX peak 80.9) produced no payout: V52 had been in cash for 12 months when VIX peaked — all 90-DTE calls had expired OTM before the spike. Slow bears are handled by the regime exit; VIX calls only cover fast panics where VIX spikes within 90 days of the last call purchase.
 
 ---
 
@@ -192,7 +193,7 @@ Start    Yrs        SPY        QQQ        V50        V51   V51.DD12   V52.DD12  
 **Key findings:**
 
 - **V52.DD12.VIX wins all 26 vintages (26/26).** The VIX call overlay adds CAGR over V52.DD12 in every vintage, with the largest gains in post-2019 windows where COVID and tariff-shock VIX calls were sold at threshold. *(Note: vintage column numbers originally computed with V52.DD.OTM BS pricing; V52.DD12.VIX vintage recomputation pending. COVID and 2025 annual values updated to actual.)*
-- **V52.DD12.VIX margin over V52.DD12**: modest in calm decades (premium drag ~1pp/yr), meaningful in panic years (+18.7pp in 2020, +2.3pp in 2025). End value +13.4% over 26 years ($11.27M vs $9.94M).
+- **V52.DD12.VIX vs V52.DD12**: premium drag ~1pp/yr in calm years; 2 threshold events over 26 years (+18.7pp in 2020, +2.3pp in 2025). End value $11.27M vs $9.94M — technically +13.4% but rests on 2 events; treat as insurance cost/payoff, not alpha.
 - **V51.DD12 wins 2000–2009 over V51 (+2.4–5pp CAGR).** For 2010+ starts, V51 pulls ahead of V51.DD12 (guard costs re-entry in secular bull). V52.DD12.VIX wins all windows.
 - **The 51.6% MaxDD of V52.DD.OTM is unchanged from V52.DD12.** Vintage CAGR doesn't capture intra-period pain. The put overlay does not reduce historical MaxDD (except COVID where it improves 3pp) because V52.DD12 already exits before most drawdown accumulates.
 - **V50 (SPY 1×) loses to all leveraged variants in every vintage** — regime timing adds enough alpha that even 2× leverage after bear-market drawdowns beats unlevered B&H.
@@ -2357,7 +2358,7 @@ Why VIX=40%: the historical inflection point where VIX rank separates genuine be
 - Production parameters (DD=12%, VIX=40%, reopen=8%) are the Calmar/CAGR/Sharpe optimum in all 3 out-of-sample folds.
 - No CAGR shrinkage — test windows outperform or match training windows in all 3 folds.
 - The DD=12% peak in the in-sample sweep is NOT an overfit artifact. It is a stable ridge that holds across every independent test period from 2010 to 2026.
-- V52.DD12.VIX is the production strategy; VIX call overlay adds terminal wealth without changing CAGR/MaxDD materially.
+- V52.DD12.VIX is the production strategy; VIX call overlay provides gap-risk insurance at near-break-even historical cost — not a demonstrated CAGR edge.
 
 No parameter change recommended. Production deployment of V52.DD12 + Nuclear Bunker v2 is validated.
 
