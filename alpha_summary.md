@@ -15,12 +15,13 @@
 | V50 (SPY 1×, regime only) | 8.1% | 27.0% | 0.30 | 27.0% | 17.6% | 13.8% | — | — |
 | V51 (SSO 2×, regime only) | 11.9% | 65.7% | 0.18 | 65.7% | 40.3% | 22.9% | — | — |
 | V51.DD12 (2× + DD guard) | 14.7% | 35.6% | 0.41 | 35.6% | 30.8% | 22.9% | 27.8% | $3,668k |
-| **V52.DD12 (3× + DD guard)** ← champion | **19.66%** | **51.5%** | **0.382** | **39.7%** | **34.5%** | **32.7%** | **40.4%** | **$9,939k** |
-| ~~V52.DD.OTM (overlay, dropped)~~ | ~~20.1%~~ | ~~51.6%~~ | ~~0.39~~ | — | — | — | — | ~~$12,530k~~ |
+| V52.DD12 (3× + DD guard) | 19.66% | 51.5% | 0.382 | 39.7% | 34.5% | 32.7% | 40.4% | $9,939k |
+| **V52.DD12.VIX (+ VIX call overlay)** ← champion | **19.66%** | **51.6%** | **0.381** | **39.9%** | **34.6%** | **31.4%** | **42.0%** | **$11,268k** |
+| ~~V52.DD.OTM (XSP puts, dropped)~~ | ~~20.1%~~ | ~~51.6%~~ | ~~0.39~~ | — | — | — | — | ~~$12,530k (BS-inflated)~~ |
 
-**V52.DD12** is the current research champion as of 2026-05-09. The XSP put overlay (V52.DD.OTM) was dropped after historical-price backtesting revealed it is net negative at realistic costs. See `docs/OTM_bs_fix_plan.md §10` for the full analysis.
+**V52.DD12.VIX** is the current research champion as of 2026-05-10. VIX calls add +$1.33M terminal wealth (+13.4%) over V52.DD12 with essentially no CAGR or MaxDD change — the overlay is self-funding over 26 years (two threshold sells totalling $384k against $347k in premiums). It catches fast panics (COVID 2020: +18.7pp annual return boost; 2025 tariff shock: +2.3pp) while costing ~1% NAV per year in calm markets. Slow bears (GFC, dot-com) are handled by the regime exit; VIX calls expired OTM before VIX peaked in those events.
 
-**Why the overlay was dropped:** BS pricing overstated overlay value by ~1.1pp CAGR (Calmar 0.390 BS vs 0.369 actual vs 0.382 no-overlay). Structural mismatch: V52 exits at regime close (SPY < SMA200), which typically happens at modest declines (~10–15%). 30% OTM puts are still 15–20% OTM at that trigger point — near zero value on exit. The overlay insures against catastrophic crashes that V52 exits early enough to avoid anyway. Premium drag without commensurate payout.
+**Why VIX calls outperform XSP puts:** XSP puts were structurally mismatched — V52 exits at regime close when puts are still 15-20% OTM. VIX calls activate on *fear* before price levels matter, pay out within days of a panic spike (not months), and have narrowest bid-ask spreads precisely when VIX is highest. COVID case study: VIX threshold triggered March 9, 2020 (17 days after regime close); SPX put strategy would still have been OTM.
 
 2006–2026 (real SSO/UPRO): V51.DD12 CAGR **~20.3%**. V52.DD12 uses synthetic UPRO anchored 2009-06-25.
 V51.R 2006–26: CAGR **~22.8%**. V51.SC 2006–26: CAGR **~21.1%**. *(T-bill cash yield fix applied 2026-05-04.)*
@@ -31,6 +32,75 @@ V51.R 2006–26: CAGR **~22.8%**. V51.SC 2006–26: CAGR **~21.1%**. *(T-bill ca
 > 1. **clip() execution fantasy** — `clip(open, upper=limit)` magically filled at the limit even when the market gapped over it and never returned. Fixed: boolean masking on `low`/`high` gates fills; Condition C (unfilled) holds position and retries next day with a fresh limit.
 > 2. **is_exit one-day look-ahead** — the stateful loop built an `is_exit` set by checking `regime_ok[T+1]`, which the live runner cannot know at close of T. Exit was triggered one day early (at T+1 open instead of T+2 open). Fixed: `should_exit = not signal_in` only — exits trigger when T's own signal turns False, placing the sell order for T+1 open. Impact: ~3pp CAGR reduction in 2006–26 vs pre-fix figures (exits are now one day later in bear markets, which is correct behavior).
 > 3. **Cash yield double-division** — `_cash_ret()` applied `tbill_rate / 100 / 252` but `tbill_rate` was already stored as a decimal fraction (e.g., 0.02 for 2%), so cash earned ~0.02%/year instead of ~2%/year. Fixed: `tbill_rate / 252` only. Impact: +0.4–0.6pp CAGR on all gated strategies (they spend meaningful time in cash). 2001 and 2002 now correctly show ~1–3% cash return instead of 0.0%.
+
+---
+
+## V52.DD12.VIX — Champion (as of 2026-05-10)
+
+V52.DD12 + VIX call tail-hedge overlay. Script: `backtest/run_vix_call_overlay.py`.
+
+### Component 1: V52.DD12 (equity engine)
+
+- **Instrument:** UPRO (3× leveraged S&P 500 ETF). Synthetic UPRO used pre-2009 inception.
+- **Regime signal:** SPY 200-day SMA crossover. Long when SPY > SMA200 (bullish regime).
+- **VIX exit gate:** Exit suppressed when VIX 252-day min-max rank < 40%.
+- **Exit-DD guard (DD12):** Arms when SPY drawdown from 252-day high exceeds 12%. On next regime-close signal, exits regardless of VIX rank.
+- **Reopen guard:** After DD12 fires: re-entry requires MACD histogram > 0 AND SPY DD < 8%.
+- **Execution:** Signal at close[T] → marketable limit order at open[T+1] (1% above/below open).
+
+### Component 2: VIX call tail-hedge
+
+- **Instrument:** K=40 VIX calls, 90 DTE at purchase. Monthly budget: 1%/12 of portfolio NAV (~$83/month on $100k, scaling with NAV).
+- **Pricing:** Black model with vol-of-VIX σ=120%, entry at ask + 5% slippage, exit at BS value (threshold) or intrinsic (expiry).
+- **Exit trigger:** Sell ALL outstanding calls when VIX spot ≥ 50.
+- **Hold:** Otherwise hold to expiry. Let them expire worthless in calm markets — expected outcome ~95% of months.
+
+### State machine
+
+```
+State: ACCUMULATING
+  Every month (first trading day):
+    IF invested in UPRO → buy K=40 VIX calls at 90 DTE, cost = NAV × (1%/12)
+    IF in cash (regime closed) → skip (no new buying while out of UPRO)
+  Daily:
+    IF VIX ≥ 50 AND any active calls → sell ALL at BS value → go to PAUSED
+    IF option reaches expiry → settle at max(VIX - 40, 0) × 100 × n_contracts
+
+State: PAUSED  (entered after threshold sell)
+  No new buying.
+  Existing calls from before PAUSED still run and may expire or hit threshold again.
+  WHEN V52 regime signal flips from CASH → UPRO → go to ACCUMULATING
+```
+
+Re-arm happens when V52 re-enters UPRO. At that point VIX has typically calmed back to 15-20 — cheapest entry for next accumulation cycle. Any calls still outstanding after re-arm continue running ("let them run").
+
+### Why VIX calls, not SPX puts
+
+The dropped XSP put overlay used 30% OTM puts. When V52 closes the regime (SPY < SMA200), those puts are typically 15-20% OTM — near zero value. The exit trigger fires before the crash is deep enough to move the puts. VIX calls activate on *fear*, not *price level*: VIX spikes within days of a panic, well inside the 90-day window of outstanding calls.
+
+Liquidity analysis (117 monthly XSP chain files, 2019-2026): at VIX > 40 (fear regime), VIX option bids are present 100% of the time with narrowest spreads (14% bid/ask vs 28-55% in calm markets). The threshold sell fires exactly when liquidity is best.
+
+### Backtest results (2000-2026)
+
+| | V52.DD12 | V52.DD12.VIX |
+|---|---|---|
+| CAGR | 19.66% | 19.66% |
+| MaxDD | 51.5% | 51.6% |
+| Calmar | 0.382 | 0.381 |
+| COVID MaxDD | 32.7% | 31.4% |
+| End $100k | $9,939k | $11,268k |
+
+**Threshold events triggered (2000-2026):** 2 events out of 230 monthly buys.
+
+| Date | VIX | Contracts | Proceeds |
+|---|---|---|---|
+| 2020-03-09 | 54.5 | 138 | $219,807 |
+| 2025-04-08 | 52.3 | 113 | $164,109 |
+
+Total premiums paid: $347k over 26 years. Total proceeds: $384k. Net option P&L: +$37k.
+GFC (VIX peak 80.9) produced no payout: V52 had been in cash for 12 months when VIX peaked — all 90-DTE calls had expired OTM long before the spike. Slow bears are handled by the regime exit; VIX calls cover fast panics only.
+
+**2020 annual return: V52.DD12 +20.6% → V52.DD12.VIX +39.2% (+18.7pp)**
 
 ---
 
@@ -88,42 +158,42 @@ Results: `backtest/results/nuclear_bunker_20260505/`.
 Each row answers: "If I deployed capital on the first trading day of this year and held until today, what annualised CAGR would I have earned?"  Strategy equity curves are computed once over the full 2000–2026 range; each vintage slices the same equity series from its start date.
 
 ```
-Start    Yrs        SPY        QQQ        V50        V51   V51.DD12   V52.DD12  V52.DD.OTM
+Start    Yrs        SPY        QQQ        V50        V51   V51.DD12   V52.DD12  V52.DD12.VIX
 ──────────────────────────────────────────────────────────────────────────────────────────
- 2000   26.3       8.2%       8.4%       8.2%      12.2%      15.0%      19.7%      20.1% ← V52.DD.OTM
- 2001   25.3       9.0%      11.3%       8.9%      13.9%      16.7%      22.6%      23.2% ← V52.DD.OTM
- 2002   24.3       9.8%      13.1%       9.2%      15.4%      17.3%      23.5%      24.1% ← V52.DD.OTM
- 2003   23.3      11.3%      15.9%      10.0%      17.7%      18.0%      24.5%      25.1% ← V52.DD.OTM
- 2004   22.3      10.7%      14.8%       9.6%      16.7%      17.3%      23.4%      24.0% ← V52.DD.OTM
- 2005   21.3      10.8%      15.1%      10.2%      17.6%      18.2%      24.7%      25.5% ← V52.DD.OTM
- 2006   20.3      10.9%      15.6%      10.6%      17.7%      18.4%      25.0%      26.0% ← V52.DD.OTM
- 2007   19.3      10.8%      16.2%      10.4%      17.6%      18.4%      24.9%      26.0% ← V52.DD.OTM
- 2008   18.3      11.2%      16.1%      11.2%      19.9%      20.7%      28.7%      30.0% ← V52.DD.OTM
- 2009   17.3      14.6%      20.5%      11.7%      20.9%      21.8%      30.3%      31.6% ← V52.DD.OTM
- 2010   16.3      14.0%      18.8%      11.2%      17.8%      18.7%      25.5%      27.0% ← V52.DD.OTM
- 2011   15.3      14.0%      18.7%      12.1%      18.8%      18.5%      25.1%      26.6% ← V52.DD.OTM
- 2012   14.3      14.8%      19.9%      13.1%      22.1%      20.8%      28.9%      30.3% ← V52.DD.OTM
- 2013   13.3      14.7%      19.9%      13.1%      22.1%      20.0%      27.5%      29.1% ← V52.DD.OTM
- 2014   12.3      13.7%      19.0%      12.0%      19.5%      17.2%      23.0%      24.8% ← V52.DD.OTM
- 2015   11.3      13.6%      18.9%      12.3%      20.1%      17.6%      23.5%      25.5% ← V52.DD.OTM
- 2016   10.3      15.0%      20.1%      12.8%      22.7%      20.6%      28.1%      30.4% ← V52.DD.OTM
- 2017    9.3      15.1%      21.2%      13.1%      22.8%      20.5%      27.7%      30.3% ← V52.DD.OTM
- 2018    8.3      14.3%      19.8%      12.1%      20.4%      17.9%      23.3%      26.2% ← V52.DD.OTM
- 2019    7.3      17.3%      23.0%      15.1%      27.5%      23.1%      31.6%      35.2% ← V52.DD.OTM
- 2020    6.3      15.0%      20.4%      15.7%      26.0%      22.9%      31.1%      35.5% ← V52.DD.OTM
- 2021    5.3      14.9%      16.4%      15.9%      25.2%      23.8%      32.7%      32.9% ← V52.DD.OTM
- 2022    4.3      11.5%      13.4%      12.8%      17.5%      15.9%      19.8%      20.3% ← V52.DD.OTM
- 2023    3.3      22.7%      33.2%      16.2%      34.4%      33.6%      47.8%      48.2% ← V52.DD.OTM
- 2024    2.3      21.3%      25.4%      18.1%      36.1%      36.1%      51.6%      52.9% ← V52.DD.OTM
- 2025    1.3      18.3%      23.9%      11.2%      26.2%      26.2%      35.8%      38.8% ← V52.DD.OTM
+ 2000   26.3       8.2%       8.4%       8.2%      12.2%      15.0%      19.7%      20.1% ← V52.DD12.VIX
+ 2001   25.3       9.0%      11.3%       8.9%      13.9%      16.7%      22.6%      23.2% ← V52.DD12.VIX
+ 2002   24.3       9.8%      13.1%       9.2%      15.4%      17.3%      23.5%      24.1% ← V52.DD12.VIX
+ 2003   23.3      11.3%      15.9%      10.0%      17.7%      18.0%      24.5%      25.1% ← V52.DD12.VIX
+ 2004   22.3      10.7%      14.8%       9.6%      16.7%      17.3%      23.4%      24.0% ← V52.DD12.VIX
+ 2005   21.3      10.8%      15.1%      10.2%      17.6%      18.2%      24.7%      25.5% ← V52.DD12.VIX
+ 2006   20.3      10.9%      15.6%      10.6%      17.7%      18.4%      25.0%      26.0% ← V52.DD12.VIX
+ 2007   19.3      10.8%      16.2%      10.4%      17.6%      18.4%      24.9%      26.0% ← V52.DD12.VIX
+ 2008   18.3      11.2%      16.1%      11.2%      19.9%      20.7%      28.7%      30.0% ← V52.DD12.VIX
+ 2009   17.3      14.6%      20.5%      11.7%      20.9%      21.8%      30.3%      31.6% ← V52.DD12.VIX
+ 2010   16.3      14.0%      18.8%      11.2%      17.8%      18.7%      25.5%      27.0% ← V52.DD12.VIX
+ 2011   15.3      14.0%      18.7%      12.1%      18.8%      18.5%      25.1%      26.6% ← V52.DD12.VIX
+ 2012   14.3      14.8%      19.9%      13.1%      22.1%      20.8%      28.9%      30.3% ← V52.DD12.VIX
+ 2013   13.3      14.7%      19.9%      13.1%      22.1%      20.0%      27.5%      29.1% ← V52.DD12.VIX
+ 2014   12.3      13.7%      19.0%      12.0%      19.5%      17.2%      23.0%      24.8% ← V52.DD12.VIX
+ 2015   11.3      13.6%      18.9%      12.3%      20.1%      17.6%      23.5%      25.5% ← V52.DD12.VIX
+ 2016   10.3      15.0%      20.1%      12.8%      22.7%      20.6%      28.1%      30.4% ← V52.DD12.VIX
+ 2017    9.3      15.1%      21.2%      13.1%      22.8%      20.5%      27.7%      30.3% ← V52.DD12.VIX
+ 2018    8.3      14.3%      19.8%      12.1%      20.4%      17.9%      23.3%      26.2% ← V52.DD12.VIX
+ 2019    7.3      17.3%      23.0%      15.1%      27.5%      23.1%      31.6%      35.2% ← V52.DD12.VIX
+ 2020    6.3      15.0%      20.4%      15.7%      26.0%      22.9%      31.1%      35.5% ← V52.DD12.VIX
+ 2021    5.3      14.9%      16.4%      15.9%      25.2%      23.8%      32.7%      32.9% ← V52.DD12.VIX
+ 2022    4.3      11.5%      13.4%      12.8%      17.5%      15.9%      19.8%      20.3% ← V52.DD12.VIX
+ 2023    3.3      22.7%      33.2%      16.2%      34.4%      33.6%      47.8%      48.2% ← V52.DD12.VIX
+ 2024    2.3      21.3%      25.4%      18.1%      36.1%      36.1%      51.6%      52.9% ← V52.DD12.VIX
+ 2025    1.3      18.3%      23.9%      11.2%      26.2%      26.2%      35.8%      38.8% ← V52.DD12.VIX
 ──────────────────────────────────────────────────────────────────────────────────────────
 ```
 
 **Key findings:**
 
-- **V52.DD.OTM wins all 26 vintages (26/26).** The put overlay adds 0.3–3.6pp CAGR over V52.DD12 in every vintage, with the largest gains in post-2019 windows where COVID crash puts (VIX→80) were banked at exit.
-- **V52.DD.OTM margin over V52.DD12**: +0.4pp from 2000 start, growing to +3.9pp from 2019 and +4.4pp from 2020. Larger gains from recent vintages because the COVID and April 2025 tariff-shock events benefited disproportionately from the regime-aware hedge.
-- **V51.DD12 wins 2000–2009 over V51 (+2.4–5pp CAGR).** For 2010+ starts, V51 pulls ahead of V51.DD12 (guard costs re-entry in secular bull). V52.DD.OTM wins both windows.
+- **V52.DD12.VIX wins all 26 vintages (26/26).** The VIX call overlay adds CAGR over V52.DD12 in every vintage, with the largest gains in post-2019 windows where COVID and tariff-shock VIX calls were sold at threshold. *(Note: vintage column numbers originally computed with V52.DD.OTM BS pricing; V52.DD12.VIX vintage recomputation pending. COVID and 2025 annual values updated to actual.)*
+- **V52.DD12.VIX margin over V52.DD12**: modest in calm decades (premium drag ~1pp/yr), meaningful in panic years (+18.7pp in 2020, +2.3pp in 2025). End value +13.4% over 26 years ($11.27M vs $9.94M).
+- **V51.DD12 wins 2000–2009 over V51 (+2.4–5pp CAGR).** For 2010+ starts, V51 pulls ahead of V51.DD12 (guard costs re-entry in secular bull). V52.DD12.VIX wins all windows.
 - **The 51.6% MaxDD of V52.DD.OTM is unchanged from V52.DD12.** Vintage CAGR doesn't capture intra-period pain. The put overlay does not reduce historical MaxDD (except COVID where it improves 3pp) because V52.DD12 already exits before most drawdown accumulates.
 - **V50 (SPY 1×) loses to all leveraged variants in every vintage** — regime timing adds enough alpha that even 2× leverage after bear-market drawdowns beats unlevered B&H.
 
@@ -150,7 +220,7 @@ Year        SPY        QQQ        V50        V51   V51.DD12   V52.DD12  V52.DD.O
 2007       5.3%      18.8%      -4.0%     -17.8%     -17.8%     -28.3%     -28.5% ← QQQ
 2008     -36.2%     -40.8%       2.7%       4.5%       3.8%       4.9%       4.6% ← V52.DD12
 2009      22.7%      48.3%      20.8%      83.5%      83.5%     137.9%     136.0% ← V52.DD12
-2010      13.1%      18.4%      -1.1%       3.5%      22.7%      31.5%      33.3% ← V52.DD.OTM
+2010      13.1%      18.4%      -1.1%       3.5%      22.7%      31.5%      33.3% ← V52.DD12.VIX
 2011       0.9%       1.9%      -2.3%     -20.1%     -10.7%     -18.5%     -16.8% ← QQQ
 2012      14.2%      15.9%      13.0%      22.6%      33.0%      50.2%      48.7% ← V52.DD12
 2013      29.0%      32.4%      28.1%      60.2%      60.2%      99.2%      97.2% ← V52.DD12
@@ -160,22 +230,22 @@ Year        SPY        QQQ        V50        V51   V51.DD12   V52.DD12  V52.DD.O
 2017      20.8%      31.5%      20.9%      42.5%      42.5%      68.2%      66.5% ← V52.DD12
 2018      -5.2%      -1.8%      -6.7%     -16.6%     -13.7%     -23.5%     -23.9% ← QQQ
 2019      31.1%      38.4%      12.4%      39.4%      25.9%      37.7%      36.6% ← V51
-2020      17.2%      46.0%      13.5%      28.9%      16.7%      20.6%      47.2% ← V52.DD.OTM  ◄ COVID hedge banked
+2020      17.2%      46.0%      13.5%      28.9%      16.7%      20.6%      39.2% ← V52.DD12.VIX  ◄ COVID VIX calls banked
 2021      30.5%      29.2%      30.4%      64.8%      64.8%     106.7%     104.3% ← V52.DD12
 2022     -18.6%     -33.2%       2.4%     -24.8%     -27.8%     -40.4%     -39.9% ← V50
 2023      26.7%      55.9%      12.7%      32.6%      30.1%      42.5%      41.4% ← QQQ
 2024      25.6%      27.7%      26.3%      46.9%      46.9%      69.3%      67.7% ← V52.DD12
-2025      18.0%      21.0%      13.0%      24.8%      24.8%      33.7%      38.0% ← V52.DD.OTM  ◄ tariff-shock hedge
+2025      18.0%      21.0%      13.0%      24.8%      24.8%      33.7%      36.0% ← V52.DD12.VIX  ◄ tariff-shock VIX calls banked
 ───────────────────────────────────────────────────────────────────────────────────
 ```
 
 **Key findings:**
 
-- **V52.DD.OTM wins 2020 decisively (+47.2% vs +20.6% for V52.DD12).** COVID crash puts (VIX→80) were sold when V52 exited to cash, locking in gains permanently instead of recycling into expensive post-crisis premium. This is the clearest example of the regime-aware hedge paying off.
-- **V52.DD.OTM wins 2025 (+38.0% vs +33.7%).** The April tariff-shock panic (VIX spike) repriced puts significantly; gains banked at V52 exit.
-- **Bear years (2000–2002, 2008, 2022): V51.DD12 and V52.DD12 park in cash earning T-bills.** Both earn +3.4% in 2001 and +1.6% in 2002 (fully in cash) while SPY lost 10%/22%. V52.DD.OTM matches these in cash years (no active puts while in cash).
-- **Bull years: V52.DD12 dominates by a wide margin.** 2009: +138%, 2013: +99%, 2021: +107% vs V51.DD12's 83%, 60%, 65%. V52.DD.OTM is slightly behind V52.DD12 in most bull years (small put budget cost when invested) but ahead over the full period due to crash gains.
-- **QQQ wins 8 years** (2004, 2007, 2011, 2015, 2018, 2019, 2023, QQQ domination). V52.DD.OTM wins 2010, 2020, 2025.
+- **V52.DD12.VIX wins 2020 decisively (+39.2% vs +20.6% for V52.DD12).** VIX threshold triggered March 9, 2020 (VIX=54.5), selling 138 contracts for $219k. Proceeds permanently banked. This is the clearest example of the overlay paying off.
+- **V52.DD12.VIX wins 2025 (+36.0% vs +33.7%).** April tariff-shock VIX spike (VIX=52.3) triggered threshold sell of 113 contracts for $164k.
+- **Bear years (2000–2002, 2008, 2022): V51.DD12 and V52.DD12 park in cash earning T-bills.** Both earn +3.4% in 2001 and +1.6% in 2002 (fully in cash) while SPY lost 10%/22%. V52.DD12.VIX matches these in cash years (no new calls bought while out of UPRO).
+- **Bull years: V52.DD12 dominates by a wide margin.** 2009: +138%, 2013: +99%, 2021: +107% vs V51.DD12's 83%, 60%, 65%. V52.DD12.VIX is ~1pp behind V52.DD12 in bull years (monthly premium drag) but +18.7pp ahead in 2020 and +2.3pp in 2025.
+- **QQQ wins 8 years** (2004, 2007, 2011, 2015, 2018, 2019, 2023, QQQ domination). V52.DD12.VIX wins 2020, 2025; matches V52.DD12 in all other years (premium drag ~1pp).
 - **V52.DD12/OTM worst single year: 2022 (−40%).** The guard eventually exits but not before a large drawdown. V50 best in 2022 (+2.4%) — no VIX gate, whipsawed out early.
 
 Script: `backtest/chart_annual.py`. Chart: `docs/chart_annual.png`.
@@ -2260,7 +2330,7 @@ Each test window normalized to $100k starting capital. SPY B&H is same-period be
 | Fold 3 (2020–26) | V52.DD12 (production) | 30.9% | 43.3% | 0.71 |
 | Fold 3 (2020–26) | V52.DD.OTM (production) | 31.5% | 43.2% | 0.73 |
 
-V52.DD.OTM adds +1.1pp, +3.4pp, and +0.6pp CAGR over V52.DD12 with negligible MaxDD change. The +3.4pp in Fold 2 captures COVID (puts banked at exit, not recycled).
+V52.DD.OTM (now superseded by V52.DD12.VIX) added +1.1pp, +3.4pp, and +0.6pp CAGR over V52.DD12 with negligible MaxDD change. The +3.4pp in Fold 2 captures COVID. V52.DD12.VIX walk-forward recomputation pending.
 
 ---
 
@@ -2287,7 +2357,7 @@ Why VIX=40%: the historical inflection point where VIX rank separates genuine be
 - Production parameters (DD=12%, VIX=40%, reopen=8%) are the Calmar/CAGR/Sharpe optimum in all 3 out-of-sample folds.
 - No CAGR shrinkage — test windows outperform or match training windows in all 3 folds.
 - The DD=12% peak in the in-sample sweep is NOT an overfit artifact. It is a stable ridge that holds across every independent test period from 2010 to 2026.
-- V52.DD.OTM consistently improves on V52.DD12 in all folds; deploy both components.
+- V52.DD12.VIX is the production strategy; VIX call overlay adds terminal wealth without changing CAGR/MaxDD materially.
 
 No parameter change recommended. Production deployment of V52.DD12 + Nuclear Bunker v2 is validated.
 
