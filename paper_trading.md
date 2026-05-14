@@ -67,12 +67,69 @@
 
 ---
 
+### 2026-05-11 — Gateway down; runner failed
+
+**Morning Runner (9:40 ET)**
+- `ConnectionRefusedError` on port 4002 — IBKR Gateway not running
+- Pending BUY 713 UPRO @ $141.49 (written 2026-05-10 EOD) never submitted
+- Paper account remains flat, $100K cash
+
+---
+
+### 2026-05-12 — Gateway down again
+
+**Morning Runner (9:40 ET)**
+- Same `ConnectionRefusedError` — gateway still not running
+- Signal 3 days stale by this point
+
+---
+
+### 2026-05-13 — Gateway down (third consecutive failure)
+
+**Morning Runner (9:40 ET)**
+- Same `ConnectionRefusedError`
+
+**Root cause investigation (2026-05-13/14)**
+
+Three compounding bugs in the IBC gateway startup:
+
+1. **Scripts not executable** — `gatewaystart.sh`, `stop.sh`, `commandsend.sh` all had `-rw-rw-r--` (no execute bit). Crontab fired but shell returned `Permission denied` immediately.
+
+2. **Wrong IBC path** — `gatewaystart.sh` had `IBC_PATH=/opt/ibc` but IBC lives at `~/ibc`. Script would have aborted with "no execute permission for scripts in /opt/ibc/scripts" even if executable.
+
+3. **Wrong gateway version** — `TWS_MAJOR_VRSN=1019` but installed version is `1046` (in `~/Jts/ibgateway/1046/`). IBC error: "Offline TWS/Gateway version 1019 is not installed: can't find jars folder".
+
+**Fixes applied:**
+- `chmod +x ~/ibc/*.sh ~/ibc/scripts/*.sh`
+- `IBC_PATH=/opt/ibc` → `IBC_PATH=~/ibc` in `gatewaystart.sh`
+- `TWS_MAJOR_VRSN=1019` → `TWS_MAJOR_VRSN=1046` in `gatewaystart.sh`
+- Gateway tested manually — connected to paper account `DUQ241384` on port 4002 ✓
+
+**Note:** IBC gateway code lives outside this repo at `~/ibc/` (IBC v3.23.0). Changes to `gatewaystart.sh` are not git-tracked. Gateway binary is at `~/Jts/ibgateway/1046/`.
+
+---
+
+### 2026-05-14 — Crontab updated: gateway auto-start/stop
+
+Added two crontab entries (Mon–Fri ET):
+- `9:20 AM` — `DISPLAY=:99 ~/ibc/gatewaystart.sh` (20 min before 9:40 paper runner)
+- `6:00 PM` — `~/ibc/stop.sh` (25 min after 5:35 EOD paper runner)
+
+Gateway uses Xvfb display `:99` (already running persistently). IBC auto-logs in via credentials in `~/ibc/config.ini`. Both gateway scripts are now executable.
+
+Also fixed: **negative cash bug** in `runner_eod_v52dd12.py` — share sizing was `int(cash // upro_close)` which could order one share more than cash covers when filled at `close × 1.01`. Fixed to size at limit price: `shares = int(cash / limit_price)`. Committed 94258464.
+
+---
+
 ## Daily Signal Summary
 
 | Date | Signal | VIX rank | DD | MACD | Action | UPRO px |
 |------|--------|----------|----|------|--------|---------|
 | 2026-05-07 | UPRO | 20.5% | −0.3% | +1.36 | BUY pending | $136.02 |
 | 2026-05-08 | — | — | — | — | Equity submitted; options blocked | $137.38 |
+| 2026-05-11 | — | — | — | — | Gateway down — not submitted | — |
+| 2026-05-12 | — | — | — | — | Gateway down — not submitted | — |
+| 2026-05-13 | — | — | — | — | Gateway down — not submitted | — |
 
 ---
 
