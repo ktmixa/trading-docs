@@ -141,6 +141,30 @@ Also fixed: **negative cash bug** in `runner_eod_v52dd12.py` — share sizing wa
 
 ---
 
+---
+
+### 2026-05-15 — Simulation DB correction
+
+**Manual correction applied to `~/.mixa/simulation.db`:**
+
+The simulation DB had an incorrect position caused by the negative-cash sizing bug (fixed in commit 94258464). On 2026-05-07 the EOD runner sized shares using `int(cash // upro_close)` instead of `int(cash / limit_price)`, resulting in 728 shares purchased at $138.00 fill against a $100K budget — overspending by $464 and leaving cash at −$464.
+
+Correct sizing with the fixed formula:
+- `limit_price = 138.67` (= close × 1.01, from orders table)
+- `shares = int(100,000 / 138.67) = 721`
+- `cost = 721 × $138.00 = $99,498`
+- `cash = $502`
+
+Correction applied:
+```sql
+UPDATE positions SET shares=721 WHERE ticker='UPRO';
+UPDATE account_cash SET cash=502.0 WHERE id=1;
+```
+
+Paper DB (`~/.mixa/paper.db`) was unaffected — its position (718 UPRO @ $138.755) reflects actual IBKR fills and was already corrected on 2026-05-14.
+
+---
+
 ## Open To-Dos
 
 - [x] **XSP options permissions confirmed (2026-05-08)** — 198 contracts visible for Aug-21 expiry; permissions were always enabled. Root issue was `MIN_STRIKE_STEP = 0.50` requesting invalid strike 515.5; fixed to 5.0 (XSP uses $5 increments at 30% OTM). Both legs ready to execute.
