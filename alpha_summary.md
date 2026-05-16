@@ -2476,12 +2476,54 @@ gate (40% rank) is the primary filter — crossings where acceleration is ambigu
 the cases where VIX rank < 40%, so both thresholds are suppressed anyway. In genuine bear
 markets, SMA190 and SMA200 fire within days of each other.
 
+### Sweep 4 — Walk-forward validation of SMA190 (2026-05-16)
+
+Script: `backtest/run_walk_forward_sma190.py` · Results: `backtest/results/walk_forward_sma190_20260516/`
+
+Same 3-fold anchored protocol as the original walk-forward (405-combo gate-param sweep per fold).
+Fixed: `close_sma=190`, sweeping DD/VIX/reopen gate thresholds. Side-by-side OOS comparison
+of SMA190 vs SMA200 at production gate params (DD=12%, VIX=40%, reopen=8%).
+
+**Question 1 — Gate params stable with SMA190?**
+
+| Fold | Calmar-optimal | Matches production? |
+|------|---------------|---------------------|
+| Fold1 (test 2010–2015) | DD=12% VIX=40% reopen=8% | ✓ yes |
+| Fold2 (test 2015–2020) | DD=12% VIX=40% reopen=8% | ✓ yes |
+| Fold3 (test 2020–2026) | DD=12% VIX=40% reopen=8% | ✓ yes |
+
+Gate params stable 3/3.
+
+**Question 2 — Is SMA190 OOS Calmar better than SMA200?**
+
+| Fold | SMA190 Calmar | SMA200 Calmar | Delta |
+|------|--------------|--------------|-------|
+| Fold1 (2010–2015) | 0.455 | 0.455 | 0.000 |
+| Fold2 (2015–2020) | 0.334 | 0.334 | 0.000 |
+| Fold3 (2020–2026) | 0.714 | 0.714 | 0.000 |
+
+**SMA190 OOS delta is exactly zero in all three folds.**
+
+**Verdict: SMA190 FAILS walk-forward. SMA200 remains production.**
+
+The full-backtest advantage of SMA190 (Calmar +0.06, MaxDD −5.3pp, Dotcom +10.2pp) is
+entirely **in-sample**. The Dotcom 2000–2002 and GFC 2007–2009 improvements both fall
+inside the training windows of all three folds. In the actual test windows (2010 onward),
+the two strategies produce identical exits at identical times — zero delta on every metric.
+
+The "strict dominance" of SMA190 in the full-backtest comparison is a classic in-sample
+artifact: SMA190 exits the two major pre-2010 bears marginally earlier, but those periods
+are now effectively in-sample for any strategy designed on 2000-present data. Post-2010,
+the VIX gate and DD guard dominate exit timing — the 10-day SMA difference between 190 and
+200 is irrelevant when the gate is doing the work.
+
 ### Verdict
 
-**SMA200 confirmed. No change.** The VIX gate is the correct primary filter for exit quality;
-the specific SMA threshold in the 185–210 range is not a meaningful differentiator. Plain SMA190
-marginally edges SMA200 (Calmar +0.06, CAGR +0.9pp) but the difference is within noise and does
-not justify abandoning the structural advantage of the most-watched level.
+**SMA200 confirmed. No change.** Three independent investigations (coarse sweep,
+fine sweep, accel-OR) showed SMA190 apparently better on full-backtest metrics; walk-forward
+validation revealed the advantage is entirely pre-2010 in-sample. Post-2010 OOS: zero delta.
+The VIX gate is the dominant exit filter; the 10-day SMA difference between 190 and 200
+does not matter in the test windows. SMA200 remains the production close threshold.
 
 ---
 
