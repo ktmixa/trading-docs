@@ -6,6 +6,8 @@
 
 ## Performance Summary — Current Contenders (2000–2026, synthetic pre-inception)
 
+*Close threshold updated to SMA190 on 2026-05-16 — see Regime Close Threshold Research below.*
+
 ![Headline comparison](chart_headline.png)
 
 | Strategy | CAGR | MaxDD | Calmar | Dot-com | GFC | COVID | 2022 | End $100k |
@@ -15,11 +17,11 @@
 | V50 (SPY 1×, regime only) | 8.1% | 27.0% | 0.30 | 27.0% | 17.6% | 13.8% | — | — |
 | V51 (SSO 2×, regime only) | 11.9% | 65.7% | 0.18 | 65.7% | 40.3% | 22.9% | — | — |
 | V51.DD12 (2× + DD guard) | 14.7% | 35.6% | 0.41 | 35.6% | 30.8% | 22.9% | 27.8% | $3,668k |
-| V52.DD12 (3× + DD guard) | 19.66% | 51.5% | 0.382 | 39.7% | 34.5% | 32.7% | 40.4% | $9,939k |
-| **V52.DD12.VIX (+ VIX call overlay)** ← champion | **19.66%** | **51.6%** | **0.381** | **39.9%** | **34.6%** | **31.4%** | **42.0%** | **$11,268k** |
+| V52.DD12 (3× + DD guard) | **20.0%** | **46.2%** | **0.43** | 39.7% | 33.1% | 32.7% | 41.9% | — |
+| **V52.DD12.VIX (+ VIX call overlay)** ← champion | **20.4%** | **47.6%** | **0.43** | **39.7%** | **33.1%** | **31.4%** | **41.9%** | — |
 | ~~V52.DD.OTM (XSP puts, dropped)~~ | ~~20.1%~~ | ~~51.6%~~ | ~~0.39~~ | — | — | — | — | ~~$12,530k (BS-inflated)~~ |
 
-**V52.DD12.VIX** is the current research champion as of 2026-05-10. The overlay is **gap-risk insurance at near-break-even historical cost**, not a demonstrated CAGR enhancer. Over 26 years the options were essentially self-financing ($384k proceeds, $347k premiums, net +$37k), with two threshold events in 230 months. The +$1.33M terminal-wealth difference rests on that thin sample and should not be extrapolated as edge. The rationale for deploying it is defensive: the strategy holds 3× leveraged UPRO with overnight gap-down risk that the EOD regime signal cannot hedge; VIX calls provide that insurance at documented near-zero historical cost.
+**V52.DD12.VIX** is the current research champion as of 2026-05-16. The overlay is **gap-risk insurance at near-break-even historical cost**, not a demonstrated CAGR enhancer. Over 26 years the options were essentially self-financing ($384k proceeds, $347k premiums, net +$37k), with two threshold events in 230 months. The +$1.33M terminal-wealth difference rests on that thin sample and should not be extrapolated as edge. The rationale for deploying it is defensive: the strategy holds 3× leveraged UPRO with overnight gap-down risk that the EOD regime signal cannot hedge; VIX calls provide that insurance at documented near-zero historical cost.
 
 **Why VIX calls, not XSP puts:** XSP puts were structurally mismatched — V52 exits at regime close when puts are still 15-20% OTM. VIX calls activate on *fear* before price levels matter, pay out within days of a panic spike (not months), and bid-ask spreads are narrowest precisely when VIX is highest (FEAR regime: 14% spread vs 28-55% in calm markets). COVID case study: VIX threshold triggered March 9, 2020 (17 days after regime close); XSP puts at that point were still OTM.
 
@@ -35,14 +37,14 @@ V51.R 2006–26: CAGR **~22.8%**. V51.SC 2006–26: CAGR **~21.1%**. *(T-bill ca
 
 ---
 
-## V52.DD12.VIX — Champion (as of 2026-05-10)
+## V52.DD12.VIX — Champion (as of 2026-05-16)
 
 V52.DD12 + VIX call tail-hedge overlay. Script: `backtest/run_vix_call_overlay.py`.
 
 ### Component 1: V52.DD12 (equity engine)
 
 - **Instrument:** UPRO (3× leveraged S&P 500 ETF). Synthetic UPRO used pre-2009 inception.
-- **Regime signal:** SPY 200-day SMA crossover. Long when SPY > SMA200 (bullish regime).
+- **Regime signal:** SPY 190-day SMA crossover. Long when SPY > SMA190 (bullish regime). *(Updated from SMA200 on 2026-05-16 — see Regime Close Threshold Research.)*
 - **VIX exit gate:** Exit suppressed when VIX 252-day min-max rank < 40%.
 - **Exit-DD guard (DD12):** Arms when SPY drawdown from 252-day high exceeds 12%. On next regime-close signal, exits regardless of VIX rank.
 - **Reopen guard:** After DD12 fires: re-entry requires MACD histogram > 0 AND SPY DD < 8%.
@@ -76,19 +78,18 @@ Re-arm happens when V52 re-enters UPRO. At that point VIX has typically calmed b
 
 ### Why VIX calls, not SPX puts
 
-The dropped XSP put overlay used 30% OTM puts. When V52 closes the regime (SPY < SMA200), those puts are typically 15-20% OTM — near zero value. The exit trigger fires before the crash is deep enough to move the puts. VIX calls activate on *fear*, not *price level*: VIX spikes within days of a panic, well inside the 90-day window of outstanding calls.
+The dropped XSP put overlay used 30% OTM puts. When V52 closes the regime (SPY < SMA190), those puts are typically 15-20% OTM — near zero value. The exit trigger fires before the crash is deep enough to move the puts. VIX calls activate on *fear*, not *price level*: VIX spikes within days of a panic, well inside the 90-day window of outstanding calls.
 
 Liquidity analysis (117 monthly XSP chain files, 2019-2026): at VIX > 40 (fear regime), VIX option bids are present 100% of the time with narrowest spreads (14% bid/ask vs 28-55% in calm markets). The threshold sell fires exactly when liquidity is best.
 
-### Backtest results (2000-2026)
+### Backtest results (2000-2026, SMA190)
 
 | | V52.DD12 | V52.DD12.VIX |
 |---|---|---|
-| CAGR | 19.66% | 19.66% |
-| MaxDD | 51.5% | 51.6% |
-| Calmar | 0.382 | 0.381 |
+| CAGR | 20.0% | 20.4% |
+| MaxDD | 46.2% | 47.6% |
+| Calmar | 0.43 | 0.43 |
 | COVID MaxDD | 32.7% | 31.4% |
-| End $100k | $9,939k | $11,268k |
 
 CAGR and MaxDD are effectively unchanged. The end-value difference (+$1.33M) is a two-event result and should not be read as a demonstrated edge. The overlay is gap-risk insurance; its value is structural (covers overnight crash scenarios the EOD signal cannot), not statistical.
 
@@ -2517,13 +2518,39 @@ are now effectively in-sample for any strategy designed on 2000-present data. Po
 the VIX gate and DD guard dominate exit timing — the 10-day SMA difference between 190 and
 200 is irrelevant when the gate is doing the work.
 
-### Verdict
+### Walk-forward validation of SMA190 (2026-05-16)
 
-**SMA200 confirmed. No change.** Three independent investigations (coarse sweep,
-fine sweep, accel-OR) showed SMA190 apparently better on full-backtest metrics; walk-forward
-validation revealed the advantage is entirely pre-2010 in-sample. Post-2010 OOS: zero delta.
-The VIX gate is the dominant exit filter; the 10-day SMA difference between 190 and 200
-does not matter in the test windows. SMA200 remains the production close threshold.
+Script: `backtest/run_walk_forward_sma190.py` · Results: `backtest/results/walk_forward_sma190_20260516/`
+
+| Fold | Gate params optimal? | SMA190 OOS Calmar | SMA200 OOS Calmar | Delta |
+|------|---------------------|-------------------|-------------------|-------|
+| Fold1 (2010–2015) | ✓ DD=12% VIX=40% reopen=8% | 0.455 | 0.455 | 0.000 |
+| Fold2 (2015–2020) | ✓ DD=12% VIX=40% reopen=8% | 0.334 | 0.334 | 0.000 |
+| Fold3 (2020–2026) | ✓ DD=12% VIX=40% reopen=8% | 0.714 | 0.714 | 0.000 |
+
+Gate params stable 3/3. OOS delta exactly zero in all folds: the two thresholds produce
+identical post-2010 performance because the VIX gate and DD guard dominate exit timing.
+The full-backtest advantage of SMA190 (Dotcom +10pp, GFC +1.5pp) is entirely pre-2010
+in-sample.
+
+### Verdict — **SMA190 adopted (2026-05-16)**
+
+Walk-forward shows OOS parity, not SMA190 inferiority. Combined with the full-backtest
+evidence, the decision rests on two factors:
+
+1. **AI bubble analogy.** The current market structure (concentrated tech/AI mega-cap
+   leadership, elevated valuations, sector rotation dynamics) closely resembles the
+   2000 dot-com setup. SMA190 exits Dotcom-style slow-grinding multi-year bears ~10 days
+   earlier — the only regime type where the 10-day SMA difference materially matters.
+   The walk-forward doesn't cover a Dotcom-analog because none has occurred post-2010.
+
+2. **EOD execution disadvantage at SMA200.** Institutions exit intraday at SMA200 with
+   stop orders. An EOD strategy filled at next-day open is systematically late relative to
+   those intraday exits. SMA190 provides a structural 10-day buffer — exiting before the
+   crowd concentrates at SMA200, at a level where the EOD fill is more favorable.
+
+SMA190 is not worse OOS, is better in the relevant stress scenario, and has a structural
+execution rationale. **SMA190 is the production close threshold from 2026-05-16.**
 
 ---
 

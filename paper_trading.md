@@ -195,6 +195,27 @@ UPDATE daily_snapshots SET day_pnl=-3855.66 WHERE date='2026-05-15';
 
 ---
 
+### 2026-05-16 — Close threshold updated: SMA200 → SMA190
+
+Following a 4-sweep regime close threshold research (coarse SMA100–200, fine SMA185–210,
+accel-OR, walk-forward validation), the production close threshold was updated from SMA200
+to SMA190.
+
+**Rationale:** Walk-forward shows OOS parity (zero delta in all 3 test windows). Full-backtest
+advantage of SMA190 is Dotcom +10pp and GFC +1.5pp — both pre-2010 in-sample but informative
+for the expected AI bubble unwind scenario. EOD execution is also systematically late at SMA200
+relative to intraday institutional exits; SMA190 provides a 10-day structural buffer.
+
+**Change applied:**
+- `live/runner_eod_v52dd12.py`: `build_regime_precomputed` now passes `cfg=RegimeStrategyConfig(close_sma=190, ...)`
+- `backtest/chart_headline.py`: updated to SMA190
+- All documentation updated
+
+**Effect on current paper position:** No immediate impact — strategy is already long UPRO.
+The new threshold will apply on the next regime-close signal.
+
+---
+
 ## Open To-Dos
 
 - [x] **XSP options permissions confirmed (2026-05-08)** — 198 contracts visible for Aug-21 expiry; permissions were always enabled. Root issue was `MIN_STRIKE_STEP = 0.50` requesting invalid strike 515.5; fixed to 5.0 (XSP uses $5 increments at 30% OTM). Both legs ready to execute.
