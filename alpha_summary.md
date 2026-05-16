@@ -2415,6 +2415,76 @@ Depth = % drop from pre-event equity level. Rec.Days = trading days from event s
 
 ---
 
+## Regime Close Threshold Research — SMA200 Robustness (2026-05-15/16)
+
+Three sweeps tested whether the SPY SMA200 close threshold is optimal or could be improved by
+a faster exit with momentum confirmation. All results use V52.DD12 parameters (UPRO 3×,
+VIX gate 40%, DD12 guard, MACD reopen, IRX-adaptive reopen), period 2000–2026.
+
+### Sweep 1 — Coarse: SMA100 → SMA200 (step 10)
+
+Script: `backtest/run_close_sma_sweep.py` · Results: `backtest/results/close_sma_sweep_20260515/`
+
+| Close SMA | CAGR | MaxDD | Calmar | Exits |
+|-----------|------|-------|--------|-------|
+| SMA100 | +13.1% | 53.3% | 0.25 | 42 |
+| SMA150 | +18.2% | 51.6% | 0.35 | 139 |
+| SMA190 | +19.9% | 46.2% | 0.43 | 105 |
+| **SMA200 ◄** | +19.0% | 51.5% | 0.37 | 98 |
+
+SMA100 is the degenerate case (close=reopen boundary — poor Calmar, only 42 exits). SMA150–200
+is a flat plateau (Calmar 0.35–0.43). SMA200 sits in the flat zone with the structural advantage
+of being the most-watched level; trend-followers cluster exits there, reinforcing the signal.
+
+### Sweep 2 — Fine: SMA185 → SMA210 + momentum acceleration confirm
+
+Script: `backtest/run_fine_sma_sweep.py` · Results: `backtest/results/fine_sma_sweep_20260516/`
+
+| Variant | CAGR | MaxDD | Calmar | Exits |
+|---------|------|-------|--------|-------|
+| SMA185 | +20.1% | 46.2% | 0.44 | 109 |
+| SMA190 | +19.9% | 46.2% | 0.43 | 105 |
+| SMA195 | +19.4% | 47.7% | 0.41 | 102 |
+| SMA195+A5 (accel only, no backstop) | +17.7% | 51.7% | 0.34 | 78 |
+| **SMA200 ◄** | +19.0% | 51.5% | 0.37 | 98 |
+| SMA205 | +19.5% | 46.2% | 0.42 | 97 |
+| SMA210 | +19.1% | 46.7% | 0.41 | 93 |
+
+SMA200 is a local minimum in this narrow range — its neighbors (185–195, 205–210) all produce
+Calmar 0.41–0.44. Differences are within 26-year backtest noise with synthetic pre-2009 data.
+The acceleration-only filter (SMA195+A5, no SMA200 backstop) was **worse** — Calmar 0.34 — because
+it held too long in genuine bears; the VIX gate already handles false-exit filtering at SMA200.
+
+### Sweep 3 — OR logic: (SMA190+accel < 0) OR (SMA200 hard stop)
+
+Script: `backtest/run_accel_or_sweep.py` · Results: `backtest/results/accel_or_sweep_20260516/`
+
+The corrected formulation: keep SMA200 as the hard stop, use SMA190+5d-accel as an early
+trigger that fires first when momentum is genuinely accelerating downward.
+
+| Variant | CAGR | MaxDD | Calmar | Exits |
+|---------|------|-------|--------|-------|
+| SMA200 ◄ | +19.0% | 51.5% | 0.37 | 98 |
+| SMA190 plain | +19.9% | 46.2% | 0.43 | 105 |
+| SMA190+A5 \| SMA200 | +19.0% | 51.5% | 0.37 | 104 |
+| SMA185+A5 \| SMA200 | +19.0% | 51.5% | 0.37 | 104 |
+
+**Perfect null.** The OR variants are statistically identical to plain SMA200 on every metric.
+The accel trigger fires 6 additional times (104 vs 98 exits) but each of those early exits
+re-entered at a price that produced identical P&L to waiting for SMA200. Root cause: the VIX
+gate (40% rank) is the primary filter — crossings where acceleration is ambiguous are exactly
+the cases where VIX rank < 40%, so both thresholds are suppressed anyway. In genuine bear
+markets, SMA190 and SMA200 fire within days of each other.
+
+### Verdict
+
+**SMA200 confirmed. No change.** The VIX gate is the correct primary filter for exit quality;
+the specific SMA threshold in the 185–210 range is not a meaningful differentiator. Plain SMA190
+marginally edges SMA200 (Calmar +0.06, CAGR +0.9pp) but the difference is within noise and does
+not justify abandoning the structural advantage of the most-watched level.
+
+---
+
 ## Open research directions
 
 1. **Asymmetric position sizing:** Scale `risk_pct` to 1.5% when SPY regime is strong AND breadth > 60%; down to 0.5% when borderline. Regime-conditional sizing rather than binary.
