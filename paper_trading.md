@@ -165,6 +165,36 @@ Paper DB (`~/.mixa/paper.db`) was unaffected — its position (718 UPRO @ $138.7
 
 ---
 
+### 2026-05-15 — EOD sizing bug: paper account sized at $100K instead of $1M
+
+**Root cause:** EOD runner used `store.get_cash(default=100_000.0)` for position sizing.
+For paper/live, the local `account_cash` table was empty (never initialized), so the default
+$100K was used. The paper account actually has ~$1M.
+
+**Impact:** On first re-entry signal, the runner would have bought ~700 UPRO instead of
+~6,900. Today's run generated no orders (signal UPRO, already in UPRO), so no undersized
+order was submitted. Issue discovered when EOD Pushover showed "P&L +$798K" — a one-time
+artifact from the cash figure jumping from $100K default to $902K IBKR actual.
+
+**Fixes applied (commit TODO):**
+- `executor/ibkr.py`: added `get_account_cash()` (reads `TotalCashValue`)
+- `runner_eod_v52dd12.py`: after IBKR position sync, also sync cash + NAV from IBKR.
+  Cash saved to store (used for `_build_orders` sizing). NAV stored in `ibkr_nav` and used
+  as authoritative `total` in the MTM snapshot — eliminates local equity recompute for
+  paper/live. Body of Pushover notification now includes `[PAPER]` / `[LIVE]` tag.
+
+**DB corrections applied to `~/.mixa/paper.db`:**
+```sql
+-- 2026-05-14: correct portfolio_value and cash (UPRO $145.10 × 718 + $902,077 cash)
+UPDATE daily_snapshots SET portfolio_value=1006259.17, cash=902077.37, day_pnl=0.0
+WHERE date='2026-05-14';
+
+-- 2026-05-15: correct day_pnl (was +$798K from bad baseline; actual: -$3,856)
+UPDATE daily_snapshots SET day_pnl=-3855.66 WHERE date='2026-05-15';
+```
+
+---
+
 ## Open To-Dos
 
 - [x] **XSP options permissions confirmed (2026-05-08)** — 198 contracts visible for Aug-21 expiry; permissions were always enabled. Root issue was `MIN_STRIKE_STEP = 0.50` requesting invalid strike 515.5; fixed to 5.0 (XSP uses $5 increments at 30% OTM). Both legs ready to execute.
